@@ -1,0 +1,131 @@
+---
+title: "Hazi feladatok megoldasa 2."
+csl: apa7.csl
+---
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+suppressMessages(source("../../src/functions.R"))
+suppressMessages(library(readr))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+### 1. A boldog.msw fájl Pboldog és Pegészs változója esetében milyen gyakran fordul elő, hogy fordított kapcsolat van a két változó között? (Pl. beteg ember boldog vagy jó egészségben lévő boldogtalan)
+
+```{r feladat_1, echo=FALSE}
+x <- dataset$PBoldog
+y <- dataset$PEgészs
+kendall_p_plus <- get_tau(x,y, algorithm="Kendall")[5][[1]]
+knight_p_plus <- get_tau(x,y, algorithm="Knight")[5][[1]]
+```
+A két változó esetében `r paste0(round(kendall_p_plus, 3) * 100, '%')` esetben fordul elő diszkordáns pár. A Knight-féle algoritmussal számolva az érték kissé magasabb,  `r paste0(round(knight_p_plus, 3) * 100, '%')`, mivel itt az X es Y valtozókra vontakoztatott egyező (tied) értékeket is figyelembe vesszük.
+
+### 2. A nők Savoring szintje magasabb, mint a férfiaké? Cohen d mekkora? Milyen gyakran fordul elő a globális nemi trenddel ellentétes viselkedés? Mi ennek a szakmai relevanciája?
+
+```{r feladat_2, echo=FALSE}
+savouring <- dataset$Savor
+```
+
+```{r echo=FALSE,  fig.width= 6, fig.align='center', fig.caption="Savouring histogram"}
+
+# histogram
+ggplot() +
+    geom_histogram(data=data.frame(x = savouring), aes(x), 
+                   fill = "cornflowerblue", 
+                   bins = 20, 
+                   color = "black",
+                   alpha = 1/2) +
+    theme_light() +
+    labs(
+         title = "A savouring változó histogramja",
+         x = "Savouring",
+         y = "N"
+    ) + scale_x_continuous(breaks = seq(1,6))
+
+# checking homoscedasticity
+savor_variances <- dataset %>%
+    select(Neme, Savor) %>%
+    group_by(Neme) %>%
+    summarise(Var = var(Savor, na.rm = TRUE))
+
+#Mann-Whitney U Test
+MW_test <- wilcox.test(Savor ~ Neme, data = dataset)
+W_statistic <- unlist(MW_test[1])[[1]]
+p_value <- unlist(MW_test[3])[[1]]
+
+#Cohen's
+cohenD <- cohen.d(Savor ~ Neme, data = dataset)
+d <- unlist(cohenD[3])[[1]]
+ci_lower <- cohenD[5][[1]][1]
+ci_upper <- cohenD[5][[1]][2]
+```
+
+A normalitás és a homoscedasticitás sérülése miatt Mann-Whitney-féle U-tesztet végeztem a "savouring" valtozóra nézve nemi bontásban. A teszt eredménye W=`r round(W_statistic, 3)`, szignifikancia szintje pedig p=`r round(p_value, 6)`, melyek nemi különbséget valószínűsítenek a női résztvevők javára. A hatásméret azonban alacsonyabb (Cohen's d = `r round(d, 3)`).
+
+```{r echo=FALSE}
+box_data <-  dataset %>%
+    mutate(Nem = factor(Neme)) %>%
+    mutate(Nem = if_else(Nem == 1, "ferfi", "no"))
+    
+ggplot(data=box_data) +
+    geom_histogram(aes(x = Savor, group = Nem, fill = Nem), 
+                   bins = 20, 
+                   color = "black", 
+                   position="dodge") +
+    theme_light() +
+    scale_fill_manual(values = c("cornflowerblue", "coral")) +
+    labs(
+         title = "A savouring változó histogramja nemi bontásban",
+         x = "Savouring nemek szerint",
+         y = "N"
+    ) + facet_wrap(~Nem, ncol = 2)
+```
+
+```{r}
+box_data <-  dataset %>%
+    mutate(Nem = factor(Neme)) %>%
+    mutate(Nem = if_else(Nem == 1, "férfi", "nő"))
+
+ggplot(data=box_data) +
+    geom_boxplot(aes(x = Savor, y = Nem, fill = Nem), color = "black") +
+    theme_light() +
+    scale_fill_manual(values = c("cornflowerblue", "coral")) +
+    labs(
+         title = "A savouring valtozó eloszlása nemi bontásban",
+         x = "Savouring",
+         y = "Nemek"
+    ) + coord_flip()
+```
+3. Elemezd a Testi_fi, Áltlelki, Áltegáll, Fizerö változókat a hiányzó adatok alapján! Melyiküknél a legkisebb/legnagyobb a hiányzó értékek száma?
+
+A hiányzó adatok változónkénti számáról és százalékértékéről az alábbi táblázat tájékoztat.
+```{r include=TRUE, echo=FALSE, warnings= FALSE} 
+missing_subset <- dataset %>%
+    dplyr::select(`Testi-Fi`, ÁltLelki, ÁltEgÁll, Fizerő)
+missing_values <- as_tibble(summarize_custom(missing_subset, FUN="is.na", names=c("Változó", "Hiányzó adat")))
+missing_values <- missing_values %>%
+    mutate(`% hiányzó` = paste0(round((`Hiányzó adat` / 500) * 100,3), "%"))  %>%
+    arrange(`Hiányzó adat`)
+knitr::kable(missing_values) 
+
+# kivenni az indexet!!!!'
+to_impute_data <- dataset
+imputed <- impute_missing_values(to_impute_data, y_names=names(missing_subset), repeats=1)
+
+```
+A hiányzó adatokat a k legközelebbi szomszéd módszerével (iker) pótoltam, mely során az R nyelven elérhető *caret* csomag adta megoldással éltem: Minden teljes adatsort mutató esetet felhasználtam egy tréning adatbázishoz, ahol prediktor változóként az index mellett minden egyéb változó megmaradt, kivéve a pótlandó változót, melynek meglévő adatai a tréning során használt kimeneti változó szerepét töltötték be. Az ily módon kiképzett *kNN* modell szolgált alapul arra, hogy segítségével bejósoljam a hiányzó adatokat. A predikcióhoz használt prediktorváltozókat a hiányzó változóértékekkel rendelkező személyek meglévő, ép adatai adták. Az eredményeket az alábbi táblázat foglalja össze.
+
+```{r echo=FALSE}
+
+```
+
+### 4. A 3. feladat változóinak hiányzó értékeit próbáld meg pótolni. Melyik módszer a legjobb erre? A pótlás után mentsd el az msw fájlt boldog_imp.msw néven.
+
+```{r }
+```
+5.  Van-e outlier a PTELJ, Pboldog, Pmagány változók értékhármasainál? Ha igen, hányas sorszámú személy a legkilógóbb és milyen értékekkel? Férfi ez vagy nő? Tudsz valamilyen magyarázatot, hogy mitől outlier ez a személy, ha megnézed a többi változójának értékét is? Lehet, hogy ezek kamu adatok?
+
+6.  Van-e outlier a 8 Diener-tétel együttesénél? Ha igen, hányas sorszámú a két legkilógóbb személy és milyen értékekkel? Nemük? Tudsz valamilyen magyarázatot, hogy mitől outlierek, ha megnézed a többi változójuk értékét is? Lehet, hogy ezek kamu adatok?
