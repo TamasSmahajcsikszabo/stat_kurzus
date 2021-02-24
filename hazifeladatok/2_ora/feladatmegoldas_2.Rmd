@@ -2,12 +2,15 @@
 title: "Hazi feladatok megoldasa 2."
 csl: apa7.csl
 ---
+Smahajcsik-Szabó Tamás, M9IJYM
 
 ```{r echo=FALSE}
 # importing C++ code, R libraries and data
 options(warn=-1)
 suppressMessages(source("../../src/functions.R"))
+suppressMessages(source("../../src/mad.R"))
 suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
 suppressMessages(library(tidyverse))
 suppressMessages(library(effsize))
 suppressMessages(dataset <- read_csv("../../data/data.csv"))
@@ -32,18 +35,18 @@ savouring <- dataset$Savor
 ```{r echo=FALSE,  fig.width= 6, fig.align='center', fig.caption="Savouring histogram"}
 
 # histogram
-ggplot() +
-    geom_histogram(data=data.frame(x = savouring), aes(x), 
-                   fill = "cornflowerblue", 
-                   bins = 20, 
-                   color = "black",
-                   alpha = 1/2) +
-    theme_light() +
-    labs(
-         title = "A savouring változó histogramja",
-         x = "Savouring",
-         y = "N"
-    ) + scale_x_continuous(breaks = seq(1,6))
+#ggplot() +
+#    geom_histogram(data=data.frame(x = savouring), aes(x), 
+#                   fill = "cornflowerblue", 
+#                   bins = 20, 
+#                   color = "black",
+#                   alpha = 1/2) +
+#    theme_light() +
+#    labs(
+#         title = "A savouring változó histogramja",
+#         x = "Savouring",
+#         y = "N"
+#    ) + scale_x_continuous(breaks = seq(1,6))
 
 # checking homoscedasticity
 savor_variances <- dataset %>%
@@ -84,7 +87,7 @@ ggplot(data=box_data) +
     ) + facet_wrap(~Nem, ncol = 2)
 ```
 
-```{r}
+```{r, echo=FALSE}
 box_data <-  dataset %>%
     mutate(Nem = factor(Neme)) %>%
     mutate(Nem = if_else(Nem == 1, "férfi", "nő"))
@@ -99,7 +102,7 @@ ggplot(data=box_data) +
          y = "Nemek"
     ) + coord_flip()
 ```
-3. Elemezd a Testi_fi, Áltlelki, Áltegáll, Fizerö változókat a hiányzó adatok alapján! Melyiküknél a legkisebb/legnagyobb a hiányzó értékek száma?
+### 3. Elemezd a Testi_fi, Áltlelki, Áltegáll, Fizerö változókat a hiányzó adatok alapján! Melyiküknél a legkisebb/legnagyobb a hiányzó értékek száma?
 
 A hiányzó adatok változónkénti számáról és százalékértékéről az alábbi táblázat tájékoztat.
 ```{r include=TRUE, echo=FALSE, warnings= FALSE} 
@@ -110,22 +113,120 @@ missing_values <- missing_values %>%
     mutate(`% hiányzó` = paste0(round((`Hiányzó adat` / 500) * 100,3), "%"))  %>%
     arrange(`Hiányzó adat`)
 knitr::kable(missing_values) 
-
-# kivenni az indexet!!!!'
-to_impute_data <- dataset
-imputed <- impute_missing_values(to_impute_data, y_names=names(missing_subset), repeats=1)
-
-```
-A hiányzó adatokat a k legközelebbi szomszéd módszerével (iker) pótoltam, mely során az R nyelven elérhető *caret* csomag adta megoldással éltem: Minden teljes adatsort mutató esetet felhasználtam egy tréning adatbázishoz, ahol prediktor változóként az index mellett minden egyéb változó megmaradt, kivéve a pótlandó változót, melynek meglévő adatai a tréning során használt kimeneti változó szerepét töltötték be. Az ily módon kiképzett *kNN* modell szolgált alapul arra, hogy segítségével bejósoljam a hiányzó adatokat. A predikcióhoz használt prediktorváltozókat a hiányzó változóértékekkel rendelkező személyek meglévő, ép adatai adták. Az eredményeket az alábbi táblázat foglalja össze.
-
-```{r echo=FALSE}
-
 ```
 
 ### 4. A 3. feladat változóinak hiányzó értékeit próbáld meg pótolni. Melyik módszer a legjobb erre? A pótlás után mentsd el az msw fájlt boldog_imp.msw néven.
 
-```{r }
-```
-5.  Van-e outlier a PTELJ, Pboldog, Pmagány változók értékhármasainál? Ha igen, hányas sorszámú személy a legkilógóbb és milyen értékekkel? Férfi ez vagy nő? Tudsz valamilyen magyarázatot, hogy mitől outlier ez a személy, ha megnézed a többi változójának értékét is? Lehet, hogy ezek kamu adatok?
+A hiányzó adatokat a k legközelebbi szomszéd módszerével (iker) pótoltam, mely során az R nyelven elérhető *caret* csomag adta megoldással éltem: Minden teljes adatsort mutató esetet felhasználtam egy tréning adatbázishoz, ahol prediktor változóként az indexen kívül minden egyéb változó beépült a modellbe; kivélt a pótlandó változók képeztek, melynek meglévő adatai a tréning során használt kimeneti változó szerepét töltötték be. Az ily módon kiképzett *kNN* modell szolgált alapul arra, hogy segítségével bejósoljam a hiányzó adatokat. A predikcióhoz használt prediktorváltozókat a hiányzó változóértékekkel rendelkező személyek meglévő, ép adatai adták. Az eredményeket az alábbi ábra foglalja össze.
 
-6.  Van-e outlier a 8 Diener-tétel együttesénél? Ha igen, hányas sorszámú a két legkilógóbb személy és milyen értékekkel? Nemük? Tudsz valamilyen magyarázatot, hogy mitől outlierek, ha megnézed a többi változójuk értékét is? Lehet, hogy ezek kamu adatok?
+```{r echo=FALSE, fig.width=10, fig.height=7}
+to_impute_data <- dataset
+suppressMessages(imputed <- impute_missing_values(to_impute_data, y_names=names(missing_subset), repeats=1))
+
+impute_plot(imputed, y_names = c("Fizerő", "ÁltEgÁll", "ÁltLelki", "Testi-Fi"))
+```
+
+Az eleve adott adatpontokat szürkével jelöltem, a hiányzó adatok a láthatóság és az ábra kedvéért egy az adatterjedelmen kívül elhelyezkedő értéket (esetünkben 10) kaptak. A nyilak ezen, a valóságban hiányzó értékek imputált, új értékeire mutatnak.
+
+### 5.  Van-e outlier a PTELJ, Pboldog, Pmagány változók értékhármasainál? Ha igen, hányas sorszámú személy a legkilógóbb és milyen értékekkel? Férfi ez vagy nő? Tudsz valamilyen magyarázatot, hogy mitől outlier ez a személy, ha megnézed a többi változójának értékét is? Lehet, hogy ezek kamu adatok?
+
+Az outlierek azonosításához a medián abszolút szórás (median abolsute deviation, MAD) mérőszámát választottam, mert az átlag helyett egy robusztusabb centrális mutatót, a mediánt veszi alapul. A 2 * MAD / 0.6745 képlettel számoltam mindhárom kérdéses változó tekintetében és azonosítottam azokat, akik értékei a fenti kritériánál alacsonyabbak vagy nagyobbak.
+
+```{r echo=FALSE, fig.width=7}
+outlier_data <- dataset[, names(dataset) %in% c("PTelj", "PBoldog", "PMagány")]
+outlier_data <- tibble(cbind(outlier_data, dataset[, names(dataset) == "index"]))
+
+#mad values
+outlier_index <- c()
+crit <- c()
+for (i in seq(1, ncol(outlier_data)-1)) {
+    x <- outlier_data[,i][[1]]
+    m <- MAD(x)
+    index <- unlist(outlier_data$index)[unname(unlist(m[5]))]
+    outlier_index <- c(outlier_index, list(index))
+    crit <- c(crit, m[3][[1]])
+    names(outlier_index[i]) <- names(outlier_data)[i]
+}
+
+matching  <-  c()
+for (i in outlier_index[1][[1]]) {
+    for (j in outlier_index[2][[1]]) {
+        for (k in outlier_index[3][[1]]) {
+            if (i == j && j == k) {
+                matching = c(matching, i)
+            }
+        }
+    }
+}
+
+outliers <- dataset %>%
+    mutate(kilog = if_else(index %in% matching, "outlier", "nem outlier")) %>%
+    dplyr::select(Neme, "PTelj", "PBoldog", "PMagány", kilog) %>%
+    mutate(index = row_number()) %>%
+    gather(2:4, key="var", value="value")
+
+ggplot() +
+    geom_point(data = outliers, aes(index, value, color = kilog)) +
+    scale_color_manual(values = c( "coral", "cornflowerblue")) +
+    geom_text_repel(data=outliers[outliers$kilog == "outlier",], aes(index, value, label = index), color = "darkblue", hjust = -0.5) +
+    theme_light() +
+    facet_grid(~var~Neme, scales="free") +
+    labs(
+         title = "Kilógó személyek elemzése",
+         x = "Index",
+         y = "Változó"
+    )
+```
+Az ábrán nemi és változónkénti bontásban szerepel az adateloszlés. Kékkel jelöltem a feltételezhetően outlier személyeket, index változójukat pedig azonosításukhoz hasznosítottam. Nemi bontás tekintetében nem mutatkozik nagy egyensúly-borulás valamelyik nem oldalára. A változók tekintetében látható mintázat alapján magányosabb, kevésbé boldog, csökkenten teljesítő személyek - nem valószínűsítem, hogy tetszőlegesen megadott, vagy valótlan adatok lennének. A 443 sorszámú személy csak minimum - maximum értékeket adott meg, esetében feltételezhető, hogy nem valós az adat.
+
+
+
+### 6.  Van-e outlier a 8 Diener-tétel együttesénél? Ha igen, hányas sorszámú a két legkilógóbb személy és milyen értékekkel? Nemük? Tudsz valamilyen magyarázatot, hogy mitől outlierek, ha megnézed a többi változójuk értékét is? Lehet, hogy ezek kamu adatok?
+
+Az előző feladathoz hasonló módszertannal elemeztem az adatokat a kilógó esetek tekintetében és noha nemi egyensúly mutatkozik az outlierek tekintetében, megállapítható, hogy az alacsony értékek tartományaiban vannak visszatérő személyek, akik következetesen hamis adatokat közöltek. Férfiaknál a 291, 303, 443, 462, 471 és 493 sorszámú résztvevőket említeném, hölgyeknél a 67, 89, 157, 192 vagy a 353 számú is alacsony pontú, kilógó személy.
+
+```{r echo=FALSE, fig.height=20, fig.width=15}
+outlier_data <- dataset[, names(dataset) %in% paste0("Diener", seq(1,8))]
+outlier_data <- tibble(cbind(outlier_data, dataset[, names(dataset) == "index"]))
+
+#mad values
+outlier_index <- c()
+crit <- c()
+for (i in seq(1, ncol(outlier_data)-1)) {
+    x <- outlier_data[,i][[1]]
+    m <- MAD(x)
+    index <- unlist(outlier_data$index)[unname(unlist(m[5]))]
+    outlier_index <- c(outlier_index, list(index))
+    crit <- c(crit, m[3][[1]])
+    names(outlier_index[i]) <- names(outlier_data)[i]
+}
+
+matching  <-  c()
+for (i in outlier_index[1][[1]]) {
+    for (j in outlier_index[2][[1]]) {
+        for (k in outlier_index[3][[1]]) {
+            if (i == j && j == k) {
+                matching = c(matching, i)
+            }
+        }
+    }
+}
+
+outliers <- dataset %>%
+    mutate(kilog = if_else(index %in% matching, "outlier", "nem outlier")) %>%
+    dplyr::select(Neme, paste0("Diener", seq(1,8)), kilog) %>%
+    mutate(index = row_number()) %>%
+    gather(2:9, key="var", value="value")
+
+ggplot() +
+    geom_point(data = outliers, aes(index, value, color = kilog)) +
+    scale_color_manual(values = c( "coral", "cornflowerblue")) +
+    geom_text_repel(data=outliers[outliers$kilog == "outlier",], aes(index, value, label = index), color = "darkblue", hjust = -0.5) +
+    theme_light() +
+    facet_grid(~var~Neme, scales="free") +
+    labs(
+         title = "Kilógó személyek elemzése",
+         x = "Index",
+         y = "Változó"
+    )
+```
