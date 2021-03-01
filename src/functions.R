@@ -2,7 +2,8 @@ library(readr)
 library(WRS)
 library(Rcpp)
 library(caret)
-sourceCpp("../../src/functions.cpp")
+library(tibble)
+sourceCpp("../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -174,3 +175,32 @@ impute_plot <- function(df, y_names) {
     theme_light() +
     facet_wrap(~gr)
 }
+
+df <- as.matrix(read_csv("../data/data.csv"))
+ASED_matrix(df)
+
+# ASED <- function(person1, person2) {
+#   distance <- c()
+#   for (i in seq_along(colnames(person1))) {
+#     dist <- unname((person2[1, i][[1]] - person1[1, i][[1]])^2)
+#     distance <- c(distance, dist)
+#   }
+#   mean(distance, na.rm = TRUE)
+# }
+
+ASED_df <- function(mat) {
+  results <- matrix(nrow = nrow(df), ncol = nrow(df))
+  for (i in seq(nrow(df))) {
+    for (j in seq(nrow(df))) {
+      if (i == j) {
+        results[i, j] <- 0
+      } else {
+        results[i, j] <- ASED(unlist(df[i, ]), unlist(df[j, ]))
+      }
+    }
+  }
+  colnames(results) <- rownames(df)
+  rownames(results) <- rownames(df)
+  as_tibble(results)
+}
+ASED_df(df)

@@ -1,0 +1,22 @@
+---
+title: "Hazi feladatok megoldasa 3."
+csl: apa7.csl
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+suppressMessages(source("../../src/functions.R"))
+suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+
+
+
+```
