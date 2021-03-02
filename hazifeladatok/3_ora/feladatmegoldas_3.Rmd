@@ -33,8 +33,19 @@ density_summary <- find_neighbours(dist_matrix, radius_vector = seq(0.1, 1.0, by
 
 ```
 
-A Diener-tetelekkel kepzett density valtozok kozul a "Dense9" nevut valasztottam, mely a leiro statisztikaja (atlag = `r density_summary[5][[1]][2,2][[1]]`, szorasa pedig `r round(density_summary[5][[1]][2,3][[1]],3)`) nyoman kevesbe szelsoseges eloszlasu, mint a hasonlo "Dense7". Fontos, hogy az elemzeshez az *R* nyelvet hasznaltam, igy a valtozok neve elter a ROPStattol. A masik elteres, hogy az itt hasznalt fuggveny opcionalisan egy eloszurest vegez a density valtozokon: kiveszi azokat a surusodesvaltozokat, melyek nem eredmenyeznek kelloen nagy emelkedest a szomszedok atlagos szamaban. 
+A Diener-tetelekkel kepzett density valtozok kozul a "Dense9" nevut valasztottam, mely a leiro statisztikaja (atlaga `r density_summary[5][[1]][2,2][[1]]`, szorasa pedig `r round(density_summary[5][[1]][2,3][[1]],3)`) nyoman kevesbe szelsoseges eloszlasu, mint a hasonlo "Dense7". Fontos, hogy az elemzeshez az *R* nyelvet hasznaltam, igy a valtozok neve elter a ROPStattol. A masik elteres, hogy az itt hasznalt fuggveny opcionalisan egy eloszurest vegez a density valtozokon: kiveszi azokat a surusodesvaltozokat, melyek nem eredmenyeznek kelloen nagy emelkedest a szomszedok atlagos szamaban. 
 
 
 ## 2. A 2.1. alfejezetben leírt módszerrel keress sűrű régiókat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a két legsűrűbb régiót?
 
+A Diener2 es Diener6 itemek tekinteteben az alabbi abra tajekoztat a suru regiokrol. Az abran ket sugar ertek menten kerult lekepezesre a suruseg.
+
+```{r echo=FALSE, fig.width = 10}
+binned_density <- estimate_binned_density(dataset[, names(dataset) %in% paste0("Diener", c("2", "6"))])
+binned_density_plot(binned_density, title = "Diener2 es Diener6 surusodespontjai kulonbozo radius ertek menten", xlab = "Diener2", ylab = "Diener6", caption = "Atlag surusodes ertekek")
+```
+
+Leginkabb szembetuno a Diener2 es Diener6 tetelek 6-6 binjenek magas surusege. Ezt ugy ertelmezem, hogy a tarsas kapcsolatokat jonak, tamogatonak megelok (6) jo esellyel onmagukat es eletuket is jonak elik meg, kielegitonek minositik. Viszont mint a 6-6 ovezetet korulvevo, annal ugyan kisebb, de a tobbi ovezeti metszesponthoz kepest megis nagyobb surusegu teruletbol latszik (igy a 6-7, 5-6 es 7-7 cellakbol), a minta nagy resze mindket tetel tekinteteben az 5-7 ovezetekben tomorul.
+
+
+### 3. A 2.2.1. alpontban leírt módszerrel keress DP sűrűsödéspontokat a Diener2 és a Diener6 item kétdimenziós terében, 200 kezdeti sűrűsödéspontot beállítva és nem standardizálva a változókat! Hogyan tudnád jellemezni a kapott sűrűsödéspontokat? Van-e valamilyen közük az előző feladat sűrű régióihoz?
