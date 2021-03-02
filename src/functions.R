@@ -4,7 +4,7 @@ library(Rcpp)
 library(caret)
 library(tibble)
 library(tidyverse)
-sourceCpp("../src/functions.cpp")
+sourceCpp("../../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -206,7 +206,7 @@ ASED_df <- function(df) {
   results
 }
 
-find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius_vector = NA, summarize = FALSE, estimate_density = FALSE) {
+find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius_vector = NA, summarize = FALSE, estimate_density = FALSE, cor_threshold = 0.8, preselection = FALSE) {
   ran <- range(dist_matrix)
   # zero is filterd out
   if (is.na(radius_vector)) {
@@ -233,7 +233,7 @@ find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius
   } else {
     summary <- as_tibble(output)
     summary <- summary %>%
-      pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+      pivot_longer(1:all_of(n_radius), names_to = "radius", values_to = "N_neighbours") %>%
       group_by(radius) %>%
       summarize("avg_neighbours" = mean(N_neighbours)) %>%
       ungroup() %>%
@@ -243,29 +243,94 @@ find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius
     result <- summary
     if (estimate_density) {
       detailed_summary <- as_tibble(output) %>%
-        pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+        pivot_longer(1:all_of(n_radius), names_to = "radius", values_to = "N_neighbours") %>%
         group_by(radius) %>%
         summarize("avg_neighbours" = mean(N_neighbours))
 
       radius_lookup <- tibble(i = seq(n_radius), radius = as.character(radius_vector))
-      neighbour_data <- as_tibble(output) %>%
+      suppressMessages(neighbour_data <- as_tibble(output) %>%
         mutate(person = row_number()) %>%
-        pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+        pivot_longer(1:all_of(n_radius), names_to = "radius", values_to = "N_neighbours") %>%
         left_join(detailed_summary) %>%
         mutate(density = N_neighbours / avg_neighbours) %>%
         dplyr::select(person, radius, density) %>%
         left_join(radius_lookup) %>%
-        mutate(density_name = paste0("Dense", i))
-      density_summary <- neighbour_data %>%
-        filter(radius %in% summary$radius) %>%
-        group_by(density_name) %>%
-        summarize(
-          "avg" = mean(density),
-          "std" = sqrt(var(density))
-        )
-      result <- list("summary" = summary, "density" = density_summary)
+        mutate(density_name = paste0("Dense", i)))
+      if (!preselection) {
+        density_summary <- neighbour_data %>%
+          # filter(radius %in% summary$radius) %>%
+          group_by(density_name) %>%
+          summarize(
+            "avg" = mean(density),
+            "std" = sqrt(var(density))
+          )
+      } else {
+        density_summary <- neighbour_data %>%
+          filter(radius %in% summary$radius) %>%
+          group_by(density_name) %>%
+          summarize(
+            "avg" = mean(density),
+            "std" = sqrt(var(density))
+          )
+      }
+      if (!preselection) {
+        density_correlations <- neighbour_data %>%
+          # filter(radius %in% summary$radius) %>%
+          dplyr::select(person, density_name, density) %>%
+          spread(density_name, density) %>%
+          dplyr::select(-person)
+      } else {
+        density_correlations <- neighbour_data %>%
+          filter(radius %in% summary$radius) %>%
+          dplyr::select(person, density_name, density) %>%
+          spread(density_name, density) %>%
+          dplyr::select(-person)
+      }
+      density_cor_matrix <- as_tibble(cor(density_correlations, method = "pearson"))
+      rownames(density_cor_matrix) <- colnames(density_cor_matrix)
+      cor_summary <- data.frame(matrix(nrow = nrow(density_cor_matrix), ncol = 2))
+      colnames(cor_summary) <- c("Density", "NhighCorrelations")
+      for (i in seq(ncol(density_cor_matrix))) {
+        actual_col <- sum(unname(unlist(density_cor_matrix[, i])) >= cor_threshold)
+        cor_summary[i, 1] <- colnames(density_cor_matrix[, i])
+        cor_summary[i, 2] <- actual_col
+      }
+      suppressMessages(highest_correlations <- cor_summary %>%
+        arrange(desc(NhighCorrelations)) %>%
+        top_n(1))
+      highest_correlations_summary <- density_summary %>%
+        filter(density_name %in% highest_correlations$Density)
+      result <- list("summary" = summary, "density" = density_summary, "density correaltions" = density_cor_matrix, "correlations summary" = cor_summary, "highest correlations" = highest_correlations_summary, "radius lookup" = radius_lookup)
     }
   }
-
   result
+}
+
+data <- dataset[, colnames(dataset) %in% c("Diener2", "Diener6")]
+estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = seq(0.005, 0.5, by = 0.005)) {
+  distance_matrix <- ASED_df(data)
+  neighbour_matrix <- find_neighbours(distance_matrix, radius_vector = radius_vector)
+  neighbour_summary <- find_neighbours(distance_matrix, radius_vector = radius_vector, summarize = TRUE)
+
+  if (is.na(n_bins)) {
+    n_bins <- range(data)[2]
+  }
+
+  bins <- tibble(bins = seq(n_bins))
+
+  results <- bind_cols(as_tibble(data), neighbour_matrix[, names(neighbour_matrix) %in% neighbour_summary$radius])
+  start_index <- ncol(data) + 1
+  end_index <- ncol(results)
+  results <- results %>%
+    pivot_longer(start_index:end_index, names_to = "radius", values_to = "neighbours") %>%
+    left_join(neighbour_summary, by = c("radius" = "radius")) %>%
+    mutate(density = neighbours / avg_neighbours) %>%
+    dplyr::select("radius", c(colnames(data), "density"))
+
+  binned_density <- results %>%
+    group_by_at(c("radius", colnames(data))) %>%
+    summarise(density = mean(density, na.rm = TRUE)) %>%
+    spread(colnames(data)[1], density)
+  binned_density[is.na(binned_density)] <- 0
+  binned_density
 }

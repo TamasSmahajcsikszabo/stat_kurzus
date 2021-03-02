@@ -17,6 +17,24 @@ suppressMessages(library(effsize))
 suppressMessages(dataset <- read_csv("../../data/data.csv"))
 suppressMessages(labels <- read_csv('../../data/labels.csv'))
 
+```
 
+### 1. Készíts sűrűségváltozókat a 8 Diener-item segítségével. Korreláltasd egymással őket és válassz ki közülük egy olyat, amelyik az összes többivel minimum 0,80-as szinten korrelál!
+
+
+```{r echo=FALSE}
+
+colnameVector <- str_detect(colnames(dataset), pattern = "Diener")
+ASED_matrix <- ASED_df(dataset[, colnameVector])
+dist_matrix <- ASED_matrix
+#neighbour_matrix <- find_neighbours(dist_matrix, radius_vector = seq(0.1, 1.0, by = 0.05))
+#neighbour_summary <- find_neighbours(dist_matrix, radius_vector = seq(0.1, 1.0, by = 0.05), summarize = TRUE)
+density_summary <- find_neighbours(dist_matrix, radius_vector = seq(0.1, 1.0, by = 0.05), summarize = TRUE, estimate_density = TRUE, preselection = TRUE)
 
 ```
+
+A Diener-tetelekkel kepzett density valtozok kozul a "Dense9" nevut valasztottam, mely a leiro statisztikaja (atlag = `r density_summary[5][[1]][2,2][[1]]`, szorasa pedig `r round(density_summary[5][[1]][2,3][[1]],3)`) nyoman kevesbe szelsoseges eloszlasu, mint a hasonlo "Dense7". Fontos, hogy az elemzeshez az *R* nyelvet hasznaltam, igy a valtozok neve elter a ROPStattol. A masik elteres, hogy az itt hasznalt fuggveny opcionalisan egy eloszurest vegez a density valtozokon: kiveszi azokat a surusodesvaltozokat, melyek nem eredmenyeznek kelloen nagy emelkedest a szomszedok atlagos szamaban. 
+
+
+## 2. A 2.1. alfejezetben leírt módszerrel keress sűrű régiókat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a két legsűrűbb régiót?
+
