@@ -3,6 +3,7 @@ library(WRS)
 library(Rcpp)
 library(caret)
 library(tibble)
+library(tidyverse)
 sourceCpp("../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
@@ -176,8 +177,7 @@ impute_plot <- function(df, y_names) {
     facet_wrap(~gr)
 }
 
-df <- as.matrix(read_csv("../data/data.csv"))
-ASED_matrix(df)
+# df <- read_csv("../data/data.csv")
 
 # ASED <- function(person1, person2) {
 #   distance <- c()
@@ -188,19 +188,84 @@ ASED_matrix(df)
 #   mean(distance, na.rm = TRUE)
 # }
 
-ASED_df <- function(mat) {
-  results <- matrix(nrow = nrow(df), ncol = nrow(df))
-  for (i in seq(nrow(df))) {
-    for (j in seq(nrow(df))) {
+ASED_df <- function(df) {
+  mat <- as.matrix(df)
+  results <- matrix(nrow = nrow(mat), ncol = nrow(mat))
+  for (i in seq(nrow(mat))) {
+    for (j in seq(nrow(mat))) {
       if (i == j) {
         results[i, j] <- 0
       } else {
-        results[i, j] <- ASED(unlist(df[i, ]), unlist(df[j, ]))
+        results[i, j] <- ASED(unlist(mat[i, ]), unlist(mat[j, ]))
       }
     }
   }
-  colnames(results) <- rownames(df)
-  rownames(results) <- rownames(df)
-  as_tibble(results)
+  results <- as_tibble(results)
+  names(results) <- as.numeric(rownames(df))
+  rownames(results) <- rownames(mat)
+  results
 }
-ASED_df(df)
+
+find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius_vector = NA, summarize = FALSE, estimate_density = FALSE) {
+  ran <- range(dist_matrix)
+  # zero is filterd out
+  if (is.na(radius_vector)) {
+    radius_vector <- seq(0, max_radius, length.out = n_radius)[-1]
+    output <- matrix(nrow = nrow(dist_matrix), ncol = n_radius - 1)
+  } else {
+    n_radius <- length(radius_vector)
+    output <- matrix(nrow = nrow(dist_matrix), ncol = n_radius)
+  }
+
+  for (p in seq(nrow(dist_matrix))) {
+    for (r in seq_along(radius_vector)) {
+      radius <- radius_vector[r]
+      person <- unname(unlist(dist_matrix[p, ]))
+      n_neighbours <- sum(person <= radius)
+      output[p, r] <- n_neighbours
+    }
+  }
+  colnames(output) <- radius_vector
+  rownames(output) <- rownames(dist_matrix)
+
+  if (!summarize) {
+    result <- as_tibble(output)
+  } else {
+    summary <- as_tibble(output)
+    summary <- summary %>%
+      pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+      group_by(radius) %>%
+      summarize("avg_neighbours" = mean(N_neighbours)) %>%
+      ungroup() %>%
+      group_by(avg_neighbours) %>%
+      summarize(radius = min(radius)) %>%
+      dplyr::select(radius, avg_neighbours)
+    result <- summary
+    if (estimate_density) {
+      detailed_summary <- as_tibble(output) %>%
+        pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+        group_by(radius) %>%
+        summarize("avg_neighbours" = mean(N_neighbours))
+
+      radius_lookup <- tibble(i = seq(n_radius), radius = as.character(radius_vector))
+      neighbour_data <- as_tibble(output) %>%
+        mutate(person = row_number()) %>%
+        pivot_longer(1:n_radius, names_to = "radius", values_to = "N_neighbours") %>%
+        left_join(detailed_summary) %>%
+        mutate(density = N_neighbours / avg_neighbours) %>%
+        dplyr::select(person, radius, density) %>%
+        left_join(radius_lookup) %>%
+        mutate(density_name = paste0("Dense", i))
+      density_summary <- neighbour_data %>%
+        filter(radius %in% summary$radius) %>%
+        group_by(density_name) %>%
+        summarize(
+          "avg" = mean(density),
+          "std" = sqrt(var(density))
+        )
+      result <- list("summary" = summary, "density" = density_summary)
+    }
+  }
+
+  result
+}
