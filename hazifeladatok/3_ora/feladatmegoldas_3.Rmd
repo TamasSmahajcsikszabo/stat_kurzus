@@ -1,5 +1,5 @@
 ---
-title: "Hazi feladatok megoldasa 3."
+title: "Házi feladatok megoldása 3. Sűrűsödéspontok és sűrű régiók"
 csl: apa7.csl
 ---
 
@@ -14,12 +14,15 @@ suppressMessages(library(readr))
 suppressMessages(library(ggrepel))
 suppressMessages(library(tidyverse))
 suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
 suppressMessages(dataset <- read_csv("../../data/data.csv"))
 suppressMessages(labels <- read_csv('../../data/labels.csv'))
 
 ```
 
 ### 1. Készíts sűrűségváltozókat a 8 Diener-item segítségével. Korreláltasd egymással őket és válassz ki közülük egy olyat, amelyik az összes többivel minimum 0,80-as szinten korrelál!
+
 
 
 ```{r echo=FALSE}
@@ -33,19 +36,70 @@ density_summary <- find_neighbours(dist_matrix, radius_vector = seq(0.1, 1.0, by
 
 ```
 
-A Diener-tetelekkel kepzett density valtozok kozul a "Dense9" nevut valasztottam, mely a leiro statisztikaja (atlaga `r density_summary[5][[1]][2,2][[1]]`, szorasa pedig `r round(density_summary[5][[1]][2,3][[1]],3)`) nyoman kevesbe szelsoseges eloszlasu, mint a hasonlo "Dense7". Fontos, hogy az elemzeshez az *R* nyelvet hasznaltam, igy a valtozok neve elter a ROPStattol. A masik elteres, hogy az itt hasznalt fuggveny opcionalisan egy eloszurest vegez a density valtozokon: kiveszi azokat a surusodesvaltozokat, melyek nem eredmenyeznek kelloen nagy emelkedest a szomszedok atlagos szamaban. 
+A Diener-tételekkel képzett density változók közül a `r density_summary[5][[1]][2,1][[1]]` nevűt választottam, mely a leiró statisztikája (átlaga `r density_summary[5][[1]][2,2][[1]]`, szórasa pedig `r round(density_summary[5][[1]][2,3][[1]],3)`) nyomán kevésbé szélsőséges eloszlású, mint a hasonlóan szoros, a többi változóval r>0.80 korrelációt mutató `r density_summary[5][[1]][1,1][[1]]` vagy a `r density_summary[5][[1]][3,1][[1]]`. Fontos, hogy az elemzéshez az *R* nyelvet használtam, így a változók neve eltér a ROPStattól. A másik eltérés, hogy az itt használt függvény opcionálisan egy előszűrést végez a density valtozókon: kiveszi azokat a sűrűsödésvaltozókat, melyek nem eredményeznek kellően nagy emelkedést a szomszédok átlagos számában. 
 
 
-## 2. A 2.1. alfejezetben leírt módszerrel keress sűrű régiókat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a két legsűrűbb régiót?
+### 2. A 2.1. alfejezetben leírt módszerrel keress sűrű régiókat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a két legsűrűbb régiót?
 
-A Diener2 es Diener6 itemek tekinteteben az alabbi abra tajekoztat a suru regiokrol. Az abran ket sugar ertek menten kerult lekepezesre a suruseg.
+A Diener2 es Diener6 itemek tekintetében az alábbi ábra tájékoztat a sűrű régiókról. Az ábrán különböző sugárértékek mentén került leképezésre a sűrűség.
 
-```{r echo=FALSE, fig.width = 10}
+Leginkább szembetűnő a Diener2 es Diener6 tételek 6-6 binjenek magas sűrűsége a bal felső, legalacsonyabb sugár alapú feltérképezésen. Ezt úgy értelmezem, hogy a társas kapcsolatokat jónak, támogatónak megélők (6) jó eséllyel önmagukat és életüket is kellemesen élik meg, kielégítőnek minősítik. Viszont mint a 6-6 övezetet körülvevő, a nagyobb sugár mentén való leképezésnél szembetűnőbb, ám annal ugyan kevésbé sűrű, a többi övezeti metszésponthoz képest mégis nagyobb sűrűségű területből látszik (így a 6-7, 5-6 es 7-7 cellákból), a minta nagy része mindkét tétel tekintetében az 5-7 övezetekben tömörül.
+
+```{r echo=FALSE, fig.width = 9, fig.height=9}
 binned_density <- estimate_binned_density(dataset[, names(dataset) %in% paste0("Diener", c("2", "6"))])
-binned_density_plot(binned_density, title = "Diener2 es Diener6 surusodespontjai kulonbozo radius ertek menten", xlab = "Diener2", ylab = "Diener6", caption = "Atlag surusodes ertekek")
+binned_density_plot(binned_density, title = "Diener2 es Diener6 sűrűsödéspontjai különböző radius érték mentén", xlab = "Diener2", ylab = "Diener6", caption = "A számértékek átlag sűrűség értékeket jelölnek cellánként")
 ```
 
-Leginkabb szembetuno a Diener2 es Diener6 tetelek 6-6 binjenek magas surusege. Ezt ugy ertelmezem, hogy a tarsas kapcsolatokat jonak, tamogatonak megelok (6) jo esellyel onmagukat es eletuket is jonak elik meg, kielegitonek minositik. Viszont mint a 6-6 ovezetet korulvevo, annal ugyan kisebb, de a tobbi ovezeti metszesponthoz kepest megis nagyobb surusegu teruletbol latszik (igy a 6-7, 5-6 es 7-7 cellakbol), a minta nagy resze mindket tetel tekinteteben az 5-7 ovezetekben tomorul.
 
 
 ### 3. A 2.2.1. alpontban leírt módszerrel keress DP sűrűsödéspontokat a Diener2 és a Diener6 item kétdimenziós terében, 200 kezdeti sűrűsödéspontot beállítva és nem standardizálva a változókat! Hogyan tudnád jellemezni a kapott sűrűsödéspontokat? Van-e valamilyen közük az előző feladat sűrű régióihoz?
+
+
+2surusodespontok 00 kezdeti értékkel első körben 15 sűrűsödéspontot kerestem. Az alábbi ábra mutatja a sűrűsödéspontok elhelyezkedését az eredeti adateloszlásra exponálva. Fontos, hogy a tételek értekeinek diszkrét jellege miatt az *R* *ggplot2* csomagjénak *geom_jitter()* függvényét használtam a pontdiagrammhoz, mely véletlenszerű értékekkel mesterseges szórást ad diszkrét változók ponteloszlásához a jobb láthatóság végett.
+Az eredményeket úgy tudom jellemezni, hogy a fentebb azonositott, 6-6 övezetmetszés mentén jelennek meg sűrűsödéspontok. Nagyobb célérték mellett az alsóbb területekben is találtam sűrűsödéspontokat.
+
+```{r echo=FALSE, fig.width = 12, fig.height=10}
+subset <- dataset[, names(dataset) %in% paste0("Diener",c("2", "6"))]
+dense_point_plot(subset)
+```
+
+Az alábbi táblázatban kiemeltem néhányat a dense point-okból:
+
+```{r echo=FALSE}
+dense_points <- get_dense_points(subset, max_dense=15) 
+knitr::kable(dense_points[1][[1]][c(1,4, 14),])
+```
+A megadott Diener2 es Diener6 értékek összevont adatpontok átlagértékei.
+
+
+#### 4. Mentsd el a kapott DP-ket. A Dpcode változó oszlopában az üres cellákba írj 0-t (Szerkesztés/Keres, cserél/Aktuális oszlopban ...) segítségével, majd hasonlítsd össze a 0, 1, 2 kódú személyeket a MET skálái segítségével! Melyik MET-skálánál a legnagyobb az eta-négyzet és mekkora ez az érték? Értelmezd szakmailag is a kapott eredményt.
+
+```{r echo = FALSE}
+options(warn=-1)
+original_data <- dataset[, names(dataset) %in% c(paste0("Diener", c("2", "6")), "Jóllét", "Savor", "AVhat", "Önreg", "Rezil", "M_Flow")] %>% 
+    mutate(DPCode = 0)
+dp_data <- dense_points[1][[1]][,1:2] %>%
+    mutate(DPCode = 1)
+all_data <- bind_rows(original_data, dp_data) %>%
+    mutate(index = row_number())
+imputed_data <-  suppressMessages(impute_missing_values(all_data, y_names = c("Jóllét", "Savor", "AVhat", "Önreg", "Rezil", "M_Flow"), repeats = 1))
+anova_data <- imputed_data[, c(1,2,9:16)]
+names(anova_data) <- c("Diener2", "Diener6",  "DPCode", "index", "Jóllét", "Savor", "AVhat", "Önreg","Rezil", "M_Flow")
+anova_data <- anova_data %>% dplyr::select(-index)
+anova_fit <- aov(DPCode ~ Jóllét + Savor + AVhat + Önreg + Rezil + M_Flow + Diener2 + Diener6, data = anova_data)
+anova_fit2 <- aov(DPCode ~ Diener2 + Diener6, data = anova_data)
+```
+Önmagában a DPCode szerinti csoportositásnak a Diener2 es Diener6 tételek tekintetében nincs szignifikáns csoportképző hatása, azaz az elvártnak megfelelően, a sűrűösádpontok, noha mesterséges aggregátumok, e két változó alapján nem különböznek az eredeti mintától.
+
+Az alábbi táblázat ezen ANOVA eredményét összegzi.
+```{r echo=FALSE}
+summary(anova_fit2)
+```
+
+A MET-tételek esetében a Jóllét es a Reziliancia tételek tekintetében p<0.01 szintű eltérés mutatkozik az eredeti minta javára, mely az alkalmazott imputáció miatt alakulhatott így. A sűrűsödéspontok statikus, alacsony varianciájú MET pontokat kaptak *kNN*-alapú (iker) imputációval, értékük stabil és alacsonyabb a minta eredeti részénél tapasztalt értékeknél.
+Ezt összegzi az alábbi output:
+
+
+```{r echo=FALSE}
+summary(anova_fit)
+```
