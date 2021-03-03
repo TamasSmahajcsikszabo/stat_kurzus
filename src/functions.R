@@ -4,6 +4,7 @@ library(Rcpp)
 library(caret)
 library(tibble)
 library(tidyverse)
+library(ggrepel)
 sourceCpp("../../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
@@ -177,7 +178,6 @@ impute_plot <- function(df, y_names) {
     facet_wrap(~gr)
 }
 
-# df <- read_csv("../data/data.csv")
 
 # ASED <- function(person1, person2) {
 #   distance <- c()
@@ -208,6 +208,7 @@ ASED_df <- function(df) {
 
 find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius_vector = NA, summarize = FALSE, estimate_density = FALSE, cor_threshold = 0.8, preselection = FALSE) {
   ran <- range(dist_matrix)
+  dist_var <- var(as.matrix(dist_matrix)[lower.tri(as.matrix(dist_matrix))], na.rm = FALSE)
   # zero is filterd out
   if (is.na(radius_vector)) {
     radius_vector <- seq(0, max_radius, length.out = n_radius)[-1]
@@ -221,7 +222,7 @@ find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius
     for (r in seq_along(radius_vector)) {
       radius <- radius_vector[r]
       person <- unname(unlist(dist_matrix[p, ]))
-      n_neighbours <- sum(person <= radius)
+      n_neighbours <- sum(person <= (radius * dist_var))
       output[p, r] <- n_neighbours
     }
   }
@@ -306,7 +307,6 @@ find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius
   result
 }
 
-data <- dataset[, colnames(dataset) %in% c("Diener2", "Diener6")]
 estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = seq(0.005, 0.5, by = 0.005)) {
   distance_matrix <- ASED_df(data)
   neighbour_matrix <- find_neighbours(distance_matrix, radius_vector = radius_vector)
@@ -322,15 +322,161 @@ estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = s
   start_index <- ncol(data) + 1
   end_index <- ncol(results)
   results <- results %>%
-    pivot_longer(start_index:end_index, names_to = "radius", values_to = "neighbours") %>%
+    pivot_longer(all_of(start_index):all_of(end_index), names_to = "radius", values_to = "neighbours") %>%
     left_join(neighbour_summary, by = c("radius" = "radius")) %>%
     mutate(density = neighbours / avg_neighbours) %>%
     dplyr::select("radius", c(colnames(data), "density"))
 
-  binned_density <- results %>%
+  suppressMessages(binned_density <- results %>%
     group_by_at(c("radius", colnames(data))) %>%
-    summarise(density = mean(density, na.rm = TRUE)) %>%
-    spread(colnames(data)[1], density)
+    summarise(density = mean(density, na.rm = TRUE)))
   binned_density[is.na(binned_density)] <- 0
   binned_density
 }
+# binned_data <- estimate_binned_density(data)
+# binned_density_data <- binned_data
+
+binned_density_plot <- function(binned_density_data, title = "", xlab = "", ylab = "", caption = "") {
+  colnames(binned_density_data) <- c("radius", "x", "y", "density")
+  x_breaks <- seq(max(binned_density_data$x))
+  y_breaks <- seq(max(binned_density_data$y))
+  ggplot(data = binned_density_data) +
+    geom_tile(aes(x = x, y = y, fill = density), color = "grey50") +
+    scale_fill_gradient(low = "grey90", high = "coral") +
+    geom_text(aes(x, y, label = round(density, 3))) +
+    facet_wrap(~radius, ncol = 2) +
+    labs(
+      title = title,
+      x = xlab,
+      y = ylab,
+      caption = caption
+    ) +
+    scale_x_continuous(breaks = x_breaks) +
+    scale_y_continuous(breaks = y_breaks) +
+    theme_light() +
+    theme(legend.position = "bottom")
+}
+
+# binned_density_plot(binned_density_data, title = "Diener2 es Diener6 surusodespontjai 2 radius ertek menten", xlab = "Diener2", ylab = "Diener6", caption = "Atlag surusodes ertekek")
+
+binned_density_frequency <- function(binned_density_data) {
+  binned_density_data %>%
+    group_by(radius, density) %>%
+    summarise(frequency = n()) %>%
+    arrange(radius, desc(density))
+}
+get_upper_matrix <- function(mat) {
+  values <- c()
+  for (i in seq(2, ncol(mat))) {
+    for (j in seq(i - 1)) {
+      values <- c(values, mat[i, j])
+    }
+  }
+  values
+}
+
+# data <- read_csv("../../data/data.csv")
+# data <- data[, names(data) %in% paste0("Diener", c("2", "6"))]
+# threshold <- 0.025
+# upper_bound <- 50
+# merge <- 0.05
+# max_dense <- 15
+
+
+get_dense_points <- function(data, initial_max_points = 200, threshold = 0.25, merge = 0.05, max_dense = 15, upper_bound = 100, columns = c("Diener2", "Diener6")) {
+
+  # ASED variance
+  ASED_matrix <- ASED_df(data)
+
+  # identify neighbours and see their frequency
+  neighbour_matrix <- find_neighbours(ASED_matrix, radius_vector = c(threshold))
+  colnames(neighbour_matrix) <- "N"
+  neighbour_matrix <- neighbour_matrix %>%
+    mutate(id = row_number()) %>%
+    arrange(desc(N)) %>%
+    top_n(N, initial_max_points) %>%
+    filter(N >= upper_bound)
+
+  # create initial DP data
+  top_person <- neighbour_matrix$id
+  DP <- data %>%
+    mutate(id = row_number()) %>%
+    filter(id %in% all_of(top_person))
+  left_out <- data %>%
+    mutate(id = row_number()) %>%
+    filter(!id %in% all_of(top_person))
+
+  # merge
+
+  dist_var <- var(as.matrix(dist_matrix)[lower.tri(as.matrix(ASED_matrix))], na.rm = FALSE)
+  merge_distance <- dist_var * merge
+  DP_count <- nrow(DP)
+  DP_stored <- tibble()
+  run <- 0
+
+  while (DP_count > max_dense) {
+    run <- run + 1
+    DP_distance <- ASED_df(DP[, c(1, 2)])
+    DP_size <- nrow(DP)
+    neighbours <- find_neighbours(DP_distance, radius_vector = c(merge))
+    colnames(neighbours) <- "N"
+    if ("N" %in% names(DP)) {
+      DP <- DP[, 1:3]
+    }
+    neighbours <- bind_cols(DP, neighbours) %>%
+      arrange(desc(N))
+    top_N <- max(neighbours$N)
+    to_merge_id <- neighbours[neighbours$N == all_of(top_N), ]$id
+    left_over_DP <- neighbours %>%
+      filter(!id %in% all_of(to_merge_id))
+    to_merge_data <- neighbours %>%
+      filter(id %in% all_of(to_merge_id)) %>%
+      summarise_(
+        aggregated = mean(DP[columns[1]][[1]], na.rm = TRUE),
+        aggregated2 = mean(DP[columns[2]][[1]], na.rm = TRUE)
+      ) %>%
+      rename_(.dots = setNames("aggregated", paste0(columns[1]))) %>%
+      rename_(.dots = setNames("aggregated2", paste0(columns[2]))) %>%
+      mutate(id = run)
+    DP_stored <- bind_rows(DP_stored, to_merge_data)
+    if (nrow(DP_stored) >= max_dense) {
+      break
+    }
+    DP <- left_over_DP
+    DP_new_size <- nrow(DP)
+    if (DP_size == DP_new_size) {
+      break
+    }
+    DP_count <- nrow(DP)
+  }
+  new_data <- bind_rows(left_out, left_over_DP, DP_stored)
+
+  list("dense point" = DP_stored, "new data" = new_data, "left out" = left_out)
+}
+
+
+dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense = 15) {
+  plot_data <- data
+  colnames(plot_data) <- c("x", "y")
+  x_breaks <- seq(max(plot_data$x))
+  y_breaks <- seq(max(plot_data$y))
+  dense_points <- get_dense_points(data, max_dense = max_dense)
+  dense_point_data <- dense_points[1][[1]]
+  colnames(dense_point_data) <- c("x", "y", "id")
+
+  suppressMessages(ggplot() +
+    geom_jitter(data = plot_data, aes(x, y), alpha = 1 / 5, size = 2) +
+    geom_point(data = dense_point_data, aes(x, y), color = "grey30", size = 5) +
+    geom_point(data = dense_point_data, aes(x, y), color = "coral", size = 4) +
+    geom_text(data = dense_point_data, aes(x, y, label = id), color = "black", size = 4) +
+    scale_x_continuous(breaks = x_breaks) +
+    scale_y_continuous(breaks = y_breaks) +
+    labs(
+      x = xlab,
+      y = ylab
+    ) +
+    theme_light() +
+    xlim(3, 7) +
+    ylim(3, 7))
+}
+# dense_point_plot(data, 15)
