@@ -83,7 +83,7 @@ A Bonferrioni módszerrel korrigált alfa érték `r round(correction, 3)` volt 
 
 ### 3. A 3.2. alfejezetben leírt módszerrel keress szignifikáns tipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott típusokat? Van valamilyen hasonlóság az 1. feladatban kapott eredményekkel?
 
-Az alábbi táblázatban foglaltam össze azon konfigurációk adatait, melyeknél a próba szignifikanciaszintje nem haladja meg a Holm-kritériumot. Markánsan kiemelkedik, és a korábbi feladatokkal összhangban adottak az 55, 66, 77 konfigurációk, mellettük a 45 példaként, vagy az 11, 22 konfigurációk, melyek olyan típusok, ahol a tételek közti együttjárás nyomán elvárható módón olyan személyek vannak nagy számban, akik azonos, vagy szorosan kapcsolódó módon adtak választ a kérdőív tételeire.
+A főbb eredményeket, így a legalább p < 0.001 szinten szignifikáns típusokat az alábbi táblázat összegzi a binomiális p, illetve a binomiális próbák z-értékeivel.
 
 ```{r echo=FALSE}
 mute <- function(exp){
@@ -96,16 +96,23 @@ mute(freq <- dat2fre(diener_selected))
 suppressMessages(res <- CFA(freq))
 
 freq_table <- res$local.test
-selected_columns <- names(freq_table)[c(1,2,3,10,11)]
+selected_columns <- names(freq_table)[c(1,2,3,7,10,11)]
 results <- tibble(freq_table[,selected_columns])
 trunc_results <- results  %>%
     mutate(Diener2= str_sub(pat.,1,1),
            Diener6 = str_sub(pat.,3,3)) %>%
     dplyr::select(-pat.) %>%
-    dplyr::select(Diener2,Diener6, Megfigyelt=obs., Elvárt=exp., z.Bin, p=z.pBin) %>%
-    filter(p < 0.001)
+    dplyr::select(Diener2,Diener6, Megfigyelt=obs., Elvárt=exp., Binom_p = ex.bin.test, z.Bin, p_corr=z.pBin) %>%
+    filter(p_corr < 0.001)
+colnames(trunc_results) <- c("Diener2", "Diener6", "Megfigyelt","Elvárt", "Binom_p", "Z-érték", "p_corr")
  #   pivot_longer(3:6, names_to="Mutatok", values_to="value") %>%
  # pivot_wider(names_from =Diener6, values_from = value)
+knitr::kable(trunc_results, "simple")
+```
+
+Az alábbi táblázatban foglaltam össze azon konfigurációk adatait, melyeknél a próba szignifikanciaszintje nem haladja meg a Holm-kritériumot. Markánsan kiemelkedik, és a korábbi feladatokkal összhangban adottak az 55, 66, 77 konfigurációk, mellettük a 45 példaként, vagy az 11, 22 konfigurációk, melyek olyan típusok, ahol a tételek közti együttjárás nyomán elvárható módón olyan személyek vannak nagy számban, akik azonos, vagy szorosan kapcsolódó módon adtak választ a kérdőív tételeire.
+
+```{r echo=FALSE}
 
 mute(selected <- tibble(summary(res, holm=TRUE)) %>%
     filter(z.pChi <= Holm.crit))
@@ -115,4 +122,39 @@ knitr::kable(selected, "simple")
 
 ### 4. A 3.2. alfejezetben leírt módszerrel keress szignifikáns atipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott antitípusokat? Van valamilyen hasonlóság a 2. feladatban kapott eredményekkel?
 
-A fenti táblázat értelemzésének folytatásaként, adottak emellett antitípusok, a korábban említett 64, 75 konfiguráció, de ilyenek a 47, 57 konfigurációk is. Ezen antitípusok azt erősítik, hogy szignifikánsan kevesebb személy jellemezhető a mintában olyan válaszmintázattal, ahol a társas kapcsolatok jó értékelése (Diener2) mellett önmaguk értékelése alacsonyabb fokú (Diener6), és fordítva; más szóval, ritka, ha a személy felé mutatott elfogadó, elégedett érzései nem tükröződnek a társas kapcsolatokban megélt jobb minőségben.
+A fenti táblázat értelemzésének folytatásaként, adottak emellett antitípusok, a korábban említett 64, 75 konfiguráció, de ilyenek a 47, 57 konfigurációk is. Ezen antitípusok azt erősítik, hogy szignifikánsan kevesebb személy jellemezhető a mintában olyan válaszmintázattal, ahol a társas kapcsolatok jó értékelése (Diener2) mellett önmaguk értékelése alacsonyabb fokú (Diener6), és fordítva; más szóval, ritka, ha a személy 0nmaga felé mutatott elfogadó, elégedett érzései nem tükröződnek a társas kapcsolatokban megélt jobb minőségben.
+A 2. feladat eredményeihez képest nem találtam jelentős eltérést, melynek okát abban sejtem, hogy alapvetően sem az elvégzett próbák (C) száma, sem a lehetséges értékkombinációk nem változtak, így akár kereszttáblákon alkalmazott Khi-négyzet, akár binomiális próbával vesszük a típusok elméletitől mért gyakoriságát, a két módszer közel azonos eredményre vezet.
+A típusbesorolásokat az alábbi ábra veti össze.
+
+```{r echo = FALSE, fig.width = 10}
+
+types2 <- selected[,c(1,4)] %>% 
+    mutate(Diener2= str_sub(Konfiguráció,1,1),
+           Diener6 = str_sub(Konfiguráció,3,3)) %>%
+    dplyr::select(Diener2, Diener6, Típus) %>%
+    mutate(mode = "binom")
+types <- types %>%
+    pivot_longer(2:8, names_to  = "Diener6", values_to = "Típus") %>%
+    mutate(mode = "chi")
+colnames(types) <- c("Diener2", "Diener6", "Típus", "mode")
+
+types_table <- bind_rows(types2, types)
+types_table <- types_table %>%
+    mutate(
+           Diener2 = as.numeric(Diener2),
+           Diener6 = as.numeric(Diener6)) %>%
+    mutate(magnitude = if_else(Típus == "+", 3, if_else(Típus == "-", 2, 1))) %>%
+    filter(magnitude != 1)
+
+ggplot(data=types_table) +
+    geom_tile(aes(Diener2, Diener6,label= Típus, fill = Típus), alpha = 1/2) + 
+    geom_text(aes(Diener2, Diener6,label= Típus, fill = Típus), size = 10) +
+    scale_fill_manual(values = c("coral", "cornflowerblue")) +
+    facet_wrap(~mode) +
+    scale_x_continuous(breaks=seq(1,7)) +
+    scale_y_continuous(breaks=seq(1,7)) +
+    theme_light()
+
+
+
+```
