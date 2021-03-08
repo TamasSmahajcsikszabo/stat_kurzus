@@ -60,7 +60,6 @@ filter_missing_data <- function(df) {
 # y_names <- names(missing_subset)
 # df <- dataset
 # df[df$index == 1443,]['Fizerő']
-
 impute_missing_values <- function(df, y_names = c(), repeats = 0, runname = repeats) {
   train_data <- df %>%
     filter_missing_data()
@@ -78,11 +77,11 @@ impute_missing_values <- function(df, y_names = c(), repeats = 0, runname = repe
 
     predicted <- floor(predict(knnmodel, x_new))
     index <- x_new$index
-    original <- data.frame(
+    original <- tibble(data.frame(
       index = df[!is.na(df[variable]), names(df) == "index"],
       var = df[!is.na(df[variable]), names(df) == variable]
-    )
-    names(original) <- c("index", variable)
+    ))
+    colnames(original) <- c("index", variable)
     new_data <- data.frame(index = index, pred = predicted)
     names(new_data) <- c("index", variable)
     full <- original %>% bind_rows(new_data)

@@ -1,0 +1,118 @@
+---
+title: "Házi feladatok megoldása 4. Konfigurációelemzés"
+csl: apa7.csl
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+suppressMessages(source("../../src/functions.R"))
+suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+
+### 1. A 3.1. alfejezetben leírt módszerrel keress szignifikáns tipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott típusokat? Van valamilyen közük az előző óra 3. feladatának DP-ihez?
+
+Az alábbi táblázatban összegeztem a legalább p < 0.001 szinten szignifikáns típusokat. Az első csoportba olyan típusokat sorolnék, mint például a 3. óra feladataiban is sűrű pontként megjelenő 7-7, ahol az elvártnál szignifikánsan több egyed áll. Ide sorolom még a 3-3, 3-4, 4-5 típusokat is. Ugyanakkor a lenti táblázatból egy másik csoport is körvonalazódik, ahol az elvártnál szignifikánsan kevesebb személy áll. Ilyen antitípusok például 4-5, 4-7 vagy a 6-5 kombinációk, melyekről bővebben a következő feladatban is írok.
+
+```{r echo=FALSE}
+mute <- function(exp){
+    invisible(capture.output(exp))
+}
+
+options(warn=-1)
+diener_selected <- dataset[, names(dataset) %in% paste0("Diener", c("2", "6"))]
+mute(freq <- dat2fre(diener_selected))
+suppressMessages(res <- CFA(freq))
+
+freq_table <- res$local.test
+selected_columns <- names(freq_table)[c(1,2,3,4,5,6)]
+results <- tibble(freq_table[,selected_columns])
+trunc_results <- results  %>%
+    mutate(Diener2= str_sub(pat.,1,1),
+           Diener6 = str_sub(pat.,3,3)) %>%
+    dplyr::select(-pat.) %>%
+    dplyr::select(Diener2,Diener6, Megfigyelt=obs., Elvárt=exp., Chi, p=pChi) %>%
+    filter(p <= 0.001)
+ #   pivot_longer(3:6, names_to="Mutatok", values_to="value") %>%
+ # pivot_wider(names_from =Diener6, values_from = value)
+
+knitr::kable(trunc_results, "simple")
+
+```
+
+### 2. A 3.1. alfejezetben leírt módszerrel keress szignifikáns atipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott antitípusokat?  
+
+```{r echo=FALSE}
+mute(cfa_summary <- summary(res, holm=FALSE))
+correction <- str_sub(capture.output(summary(res, holm=FALSE)))[24]
+correction <- as.numeric(str_sub(correction, str_locate(correction, ":")[1,1][[1]]+2))
+
+types <- tibble(cfa_summary[,c(1,4)])
+types <- types %>%
+    mutate(Diener2= str_sub(pat.,1,1),
+           Diener6 = str_sub(pat.,3,3)) %>%
+    dplyr::select(-pat.) %>%
+    dplyr::select(Diener2, Diener6, Type) %>%
+    pivot_wider(names_from = Diener6, values_from = Type)
+colnames(types)[1] <- "Diener2 / Diener6"
+```
+
+Az egyes azonosított típusokról és antitípusokról az alábbi táblázat tájékoztat: "+" jellel jelöltem a típusokat, míg a "-" jel a szignifikáns antitípusokat jelöli.
+
+```{r echo=FALSE}
+knitr::kable(types, "simple")
+```
+
+A Bonferrioni módszerrel korrigált alfa érték `r round(correction, 3)` volt a tesztelés során. A szignifikáns antitípusokat két csoportba osztom, azokat akiknélm a Diener2 tétel 6 volt, de a Diener 6 tétel 4 és 5 értékeknél volt jellemző; és egy másik csoportra, ahol épp ellenkezőleg, a Diener6 tétel magasabb értéke (7) mellett a Diener2-nél közepes értékek mutatkoztak (4-5). Általában elmondható, az elvárthoz képest is szignifikánsan ritkább tehát azok aránya a mintában, ahol a két tétel ne szoros együttjárást mutatna.
+
+
+### 3. A 3.2. alfejezetben leírt módszerrel keress szignifikáns tipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott típusokat? Van valamilyen hasonlóság az 1. feladatban kapott eredményekkel?
+
+Az alábbi táblázatban foglaltam össze azon konfigurációk adatait, melyeknél a próba szignifikanciaszintje nem haladja meg a Holm-kritériumot. Markánsan kiemelkedik, és a korábbi feladatokkal összhangban adottak az 55, 66, 77 konfigurációk, mellettük a 45 példaként, vagy az 11, 22 konfigurációk, melyek olyan típusok, ahol a tételek közti együttjárás nyomán elvárható módón olyan személyek vannak nagy számban, akik azonos, vagy szorosan kapcsolódó módon adtak választ a kérdőív tételeire.
+
+```{r echo=FALSE}
+mute <- function(exp){
+    invisible(capture.output(exp))
+}
+
+options(warn=-1)
+diener_selected <- dataset[, names(dataset) %in% paste0("Diener", c("2", "6"))]
+mute(freq <- dat2fre(diener_selected))
+suppressMessages(res <- CFA(freq))
+
+freq_table <- res$local.test
+selected_columns <- names(freq_table)[c(1,2,3,10,11)]
+results <- tibble(freq_table[,selected_columns])
+trunc_results <- results  %>%
+    mutate(Diener2= str_sub(pat.,1,1),
+           Diener6 = str_sub(pat.,3,3)) %>%
+    dplyr::select(-pat.) %>%
+    dplyr::select(Diener2,Diener6, Megfigyelt=obs., Elvárt=exp., z.Bin, p=z.pBin) %>%
+    filter(p < 0.001)
+ #   pivot_longer(3:6, names_to="Mutatok", values_to="value") %>%
+ # pivot_wider(names_from =Diener6, values_from = value)
+
+mute(selected <- tibble(summary(res, holm=TRUE)) %>%
+    filter(z.pChi <= Holm.crit))
+colnames(selected)  <- c(c("Konfiguráció", "Megfigyelt", "Elvárt", "Típus", "Holm-kritérium"), colnames(selected[,6]), c("Z-érték", "p"))
+knitr::kable(selected, "simple")
+```
+
+### 4. A 3.2. alfejezetben leírt módszerrel keress szignifikáns atipikus konfigurációkat a Diener2 és a Diener6 item kétdimenziós terében! Hogyan tudnád jellemezni a kapott antitípusokat? Van valamilyen hasonlóság a 2. feladatban kapott eredményekkel?
+
+A fenti táblázat értelemzésének folytatásaként, adottak emellett antitípusok, a korábban említett 64, 75 konfiguráció, de ilyenek a 47, 57 konfigurációk is. Ezen antitípusok azt erősítik, hogy szignifikánsan kevesebb személy jellemezhető a mintában olyan válaszmintázattal, ahol a társas kapcsolatok jó értékelése (Diener2) mellett önmaguk értékelése alacsonyabb fokú (Diener6), és fordítva; más szóval, ritka, ha a személy felé mutatott elfogadó, elégedett érzései nem tükröződnek a társas kapcsolatokban megélt jobb minőségben.

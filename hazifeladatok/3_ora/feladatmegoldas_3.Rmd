@@ -72,7 +72,7 @@ knitr::kable(dense_points[1][[1]][c(1,4, 14),])
 A megadott Diener2 es Diener6 értékek összevont adatpontok átlagértékei.
 
 
-#### 4. Mentsd el a kapott DP-ket. A Dpcode változó oszlopában az üres cellákba írj 0-t (Szerkesztés/Keres, cserél/Aktuális oszlopban ...) segítségével, majd hasonlítsd össze a 0, 1, 2 kódú személyeket a MET skálái segítségével! Melyik MET-skálánál a legnagyobb az eta-négyzet és mekkora ez az érték? Értelmezd szakmailag is a kapott eredményt.
+### 4. Mentsd el a kapott DP-ket. A Dpcode változó oszlopában az üres cellákba írj 0-t (Szerkesztés/Keres, cserél/Aktuális oszlopban ...) segítségével, majd hasonlítsd össze a 0, 1, 2 kódú személyeket a MET skálái segítségével! Melyik MET-skálánál a legnagyobb az eta-négyzet és mekkora ez az érték? Értelmezd szakmailag is a kapott eredményt.
 
 ```{r echo = FALSE}
 options(warn=-1)
