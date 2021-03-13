@@ -479,3 +479,155 @@ dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense
     ylim(3, 7))
 }
 # dense_point_plot(data, 15)
+
+exploration_plot <- function(dataset, id = "PIK") {
+  plot_data <- dataset %>%
+    pivot_longer(1:6, names_to = "var", values_to = "values") %>%
+    arrange(var)
+
+  pool <- names(dataset)
+  pool1 <- pool[str_detect(pool, id)]
+  pool2 <- pool[!str_detect(pool, id)]
+  varnames <- tibble(expand.grid(pool1, pool2))
+
+  plot_data <- tibble()
+  for (i in 1:nrow(varnames)) {
+    actual_pair <- as.character(unname(unlist(varnames[i, ])))
+    actual_df <- tibble(
+      var1 = rep(actual_pair[1], nrow(dataset)),
+      var2 = rep(actual_pair[2], nrow(dataset)),
+      x = unname(unlist(dataset[, actual_pair[1]])),
+      y = unname(unlist(dataset[, actual_pair[2]]))
+    )
+    colnames(actual_df) <- c("var1", "var2", "x", "y")
+    plot_data <- bind_rows(plot_data, actual_df)
+  }
+
+  ggplot(plot_data) +
+    geom_point(aes(x, y), alpha = 1 / 10) +
+    geom_smooth(aes(x, y), color = "coral4", fill = "coral3") +
+    facet_wrap(~var1 ~ var2, scales = "free") +
+    theme_bw() +
+    labs(
+      x = "Felső változó",
+      y = "Alsó változó",
+      caption = "A pontárnyalat a sűrűséget fejezi ki\n A vonalak illesztett LOESS trendvonalak 95% konfidencia intervallummal"
+    )
+}
+
+mute <- function(exp) {
+  invisible(capture.output(exp))
+}
+
+# inputVector1 <- c(1, 2, 1, 1)
+# inputVector2 <- c(3, 4, 3, 2)
+
+distance <- function(inputVector1, inputVector2, type = "ASED", all_in_table = FALSE, custom_names = NA) {
+  if (!type %in% c("ASED", "SED", "ED", "Manhattan", "Csebisev", "Pearson")) {
+    stop('tpye must be one of c("ASED", "SED", "ED", "Manhattan", "Csebisev", "Pearson")')
+  }
+  indexvector <- seq(1:length(inputVector1))
+  if (type == "ASED") {
+    d <- mean(sapply(indexvector, function(i) {
+      (inputVector2[i] - inputVector1[i])^2
+    }), na.rm = TRUE)
+    form <- "("
+    for (i in indexvector) {
+      actual_pair <- paste0("(", inputVector2[i], " - ", inputVector1[i], ")^2")
+      if (i == min(indexvector)) {
+        form <- paste0(form, actual_pair)
+      } else {
+        form <- paste0(form, " + ", actual_pair)
+      }
+    }
+    form <- paste0(form, ")/", length(indexvector), " = ", d)
+  } else if (type == "SED") {
+    d <- sum(sapply(indexvector, function(i) {
+      (inputVector2[i] - inputVector1[i])^2
+    }), na.rm = TRUE)
+    for (i in indexvector) {
+      actual_pair <- paste0("(", inputVector2[i], " - ", inputVector1[i], ")^2")
+      if (i == min(indexvector)) {
+        form <- actual_pair
+      } else {
+        form <- paste0(form, " + ", actual_pair)
+      }
+    }
+    form <- paste0(form, " = ", d)
+  } else if (type == "ED") {
+    d <- sqrt(sum(sapply(indexvector, function(i) {
+      (inputVector2[i] - inputVector1[i])^2
+    }), na.rm = TRUE))
+    form <- "SQRT("
+    for (i in indexvector) {
+      actual_pair <- paste0("(", inputVector2[i], " - ", inputVector1[i], ")^2")
+      if (i == min(indexvector)) {
+        form <- paste0(form, actual_pair)
+      } else {
+        form <- paste0(form, " + ", actual_pair)
+      }
+    }
+    form <- paste0(form, ")", " = ", round(d, 3))
+  } else if (type == "Manhattan") {
+    d <- sum(sapply(indexvector, function(i) {
+      abs(inputVector2[i] - inputVector1[i])
+    }), na.rm = TRUE)
+    form <- "("
+    for (i in indexvector) {
+      actual_pair <- paste0("|", inputVector2[i], " - ", inputVector1[i], "|")
+      if (i == min(indexvector)) {
+        form <- paste0(form, actual_pair)
+      } else {
+        form <- paste0(form, " + ", actual_pair)
+      }
+    }
+    form <- paste0(form, ")", " = ", round(d, 3))
+  } else if (type == "Csebisev") {
+    d <- max(sapply(indexvector, function(i) {
+      abs(inputVector2[i] - inputVector1[i])
+    }), na.rm = TRUE)
+    form <- "Max("
+    for (i in indexvector) {
+      actual_pair <- paste0("|", inputVector2[i], " - ", inputVector1[i], "|")
+      if (i == min(indexvector)) {
+        form <- paste0(form, actual_pair)
+      } else {
+        form <- paste0(form, ", ", actual_pair)
+      }
+    }
+    form <- paste0(form, ")", " = ", round(d, 3))
+  } else if (type == "Pearson") {
+    p <- cor(inputVector1, inputVector2, method = "pearson")
+    d <- 1 - p
+    if (p < 0) {
+      form <- paste0("1 - (", round(p, 3), ")")
+    } else {
+      form <- paste0("1 - ", round(p, 3))
+    }
+  }
+  results <- list(d = d, type = type, formula = form)
+  if (all_in_table) {
+    summary_table <- tibble()
+    for (m in c("ASED", "SED", "ED", "Manhattan", "Csebisev", "Pearson")) {
+      dist_estimate <- distance(inputVector1, inputVector2, type = m)
+      actual_estimate <- tibble(
+        d = round(unname(unlist(dist_estimate["d"])), 3),
+        type = as.character(unname(unlist(dist_estimate["type"]))),
+        formula = as.character(unname(unlist(dist_estimate["formula"])))
+      )
+      summary_table <- bind_rows(summary_table, actual_estimate)
+    }
+    results <- summary_table
+    if (!is.na(custom_names)) {
+      colnames(results) <- custom_names
+    }
+  }
+  results
+}
+
+# distance(inputVector1, inputVector2, type = "SED")
+# distance(inputVector1, inputVector2, type = "ASED")
+# distance(inputVector1, inputVector2, type = "ED")
+# distance(inputVector1, inputVector2, type = "Manhattan")
+# distance(inputVector1, inputVector2, type = "Csebisev")
+# distance(inputVector1, inputVector2, all_in_table=TRUE)

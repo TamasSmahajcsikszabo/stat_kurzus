@@ -1,0 +1,64 @@
+---
+title: "Házi feladatok megoldása 5. Klaszterelemzés"
+csl: apa7.csl
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+
+
+### 1. Keress nemlineáris kapcsolatot a PIK 4 skálája és a PERMA Magányosság (Pmagány) és Teljesítmény (Ptelj) skálája között!
+
+```{r echo=FALSE, fig.width = 10, fig.height=10}
+patterns <- c("PIK", "PMag*", "PTelj*")
+matching <-lapply(patterns, function(p){str_detect(names(dataset), p)} )
+colindex <- c()
+for (i in 1:length(names(dataset))) {
+    sublist <- c()
+    for (j in 1:3) {
+        index <- matching[j][[1]][[i]]
+        sublist <- c(sublist, index)
+    }
+    if (sum(sublist) > 0) {
+        colindex <- c(colindex, TRUE)
+    } else {
+        colindex <- c(colindex, FALSE)
+    }
+}
+selected_data <- dataset[, colindex]
+
+mute(exploration_plot(selected_data))
+```
+
+
+### 2. Számítsd ki Vargha (2021) alapján a 4.2. ábra B és C személyének távolságát a 4.1. táblázat összes távolságtípusára!
+
+```{r echo =FALSE}
+B <- c(5, 2, 2, 4)
+C <- c(3, 3, 3, 2)
+
+knitr::kable(distance(B, C, type="ED", all_in_table=TRUE, custom_names= c("Távolság", "Típus", "Képlet")), "latex")
+
+```
+
