@@ -761,7 +761,8 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
 # cluster_distance(clusters, method = "average")
 # cluster_distance(clusters, method = "centroid", type = "ASED")
 # cluster_distance(clusters, method = "centroid", type = "Csebisev")
-
+library(concaveman)
+library(ggforce)
 cluster_distance_plot <- function(clusters, type = "SED") {
   cluster_data <- tibble()
   for (c in 1:length(clusters)) {
@@ -797,5 +798,7 @@ cluster_distance_plot <- function(clusters, type = "SED") {
     geom_point(data = distance_data[4, ], aes(xend, yend), shape = 13, size = 3, color = "grey50") +
     geom_text(data = distance_data[4, ], aes(xend, yend), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
     geom_text_repel(data = distance_data %>% mutate(labelx = (x + xend) / 2, labely = (y + yend) / 2), aes(labelx, labely, label = paste0(method))) +
-    geom_text(data = label_data, aes(x, y, label = label))
+    geom_text(data = label_data, aes(x, y, label = label))+
+    geom_mark_hull(data=cluster_data, aes(x,y,color=Cluster,fill=Cluster, group=Cluster)) +
+    scale_fill_manual(values = c("coral", "cornflowerblue"))
 }
