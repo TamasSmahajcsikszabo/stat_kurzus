@@ -66,8 +66,16 @@ knitr::kable(distance(B, C, type="ED", all_in_table=TRUE, custom_names= c("Távo
 ### 3. Számítsd ki a 4.4. ábrán látható KL2 és KL3 klaszter távolságát a 4.2. táblázat 1., 2., 3. és 5. távolságtípusára, ha a személytávolságra a SED távolságot használjuk!
 
 ```{r echo=FALSE}
+KL2 <- list(
+  "E" = c(3, 7),
+  "F" = c(6, 7),
+  "D" = c(3, 5)
+)
 
-
-
+KL3 <- list(
+  "G" = c(5, 2),
+  "H" = c(7, 1)
+)
+clusters <- list(KL2, KL3)
 ```
 

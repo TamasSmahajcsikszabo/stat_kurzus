@@ -632,6 +632,112 @@ distance <- function(inputVector1, inputVector2, type = "ASED", all_in_table = F
 # distance(inputVector1, inputVector2, type = "Csebisev")
 # distance(inputVector1, inputVector2, all_in_table=TRUE)
 
-cluster_distance <- function(clusters, method="min"){
-  
+
+KL2 <- list(
+  "E" = c(3, 7),
+  "F" = c(6, 7),
+  "D" = c(3, 5)
+)
+
+KL3 <- list(
+  "G" = c(5, 2),
+  "H" = c(7, 1)
+)
+clusters <- list(KL2, KL3)
+
+cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_table = FALSE) {
+  for (c in 1:length(clusters)) {
+    cluster <- clusters[c][[1]]
+    members <- names(cluster)
+    assign(paste0("cl", c), members)
+  }
+
+  clusterObjects <- mget(paste0("cl", 1:length(clusters)))
+  pairs <- expand.grid(clusterObjects)
+
+  find_member <- function(clusters, name) {
+    for (c in 1:length(clusters)) {
+      if (name %in% names(clusters[[c]])) {
+        member <- clusters[[c]][names(clusters[[c]]) == name]
+      }
+    }
+    member
+  }
+  compute_centroid <- function(cluster) {
+    attr_length <- length(find_member(clusters, pairs[1, 1])[[1]])
+    clustermatrix <- matrix(unlist(cluster), ncol = attr_length, byrow = TRUE)
+    centroid <- apply(clustermatrix, 2, FUN = "mean")
+    centroid
+  }
+
+  if (method != "centroid") {
+    distances <- unlist(lapply(1:nrow(pairs), function(p) {
+      distance(find_member(clusters, as.character(pairs[p, 1]))[[1]],
+        find_member(clusters, as.character(pairs[p, 2]))[[1]],
+        type = type
+      )$d
+    }))
+  }
+
+  if (!all_in_table) {
+    if (method == "min") {
+      result <- list(
+        d = min(distances),
+        pair = pairs[distances == min(distances), ],
+        method = method,
+        type = type
+      )
+    } else if (method == "max") {
+      result <- list(
+        d = max(distances),
+        pair = pairs[distances == max(distances), ],
+        method = method,
+        type = type
+      )
+    } else if (method == "average") {
+      result <- list(
+        d = mean(distances),
+        method = method,
+        type = type
+      )
+    } else if (method == "centroid") {
+      centroids <- lapply(1:length(clusters), function(c) {
+        compute_centroid(clusters[[c]])
+      })
+      names(centroids) <- paste0("centroid", 1:length(clusters))
+      d <- distance(centroids[[1]], centroids[[2]], type = type)$d
+      result <- list(
+        d = d,
+        pair = centroids,
+        method = method,
+        type = type
+      )
+    }
+  } else {
+    result <- tibble()
+    for (m in c("min", "max", "average", "centroid")) {
+      distance_estimate <- cluster_distance(clusters, method = m, type = type)
+      if (m != "average") {
+        estimated_pair <- unname(unlist(lapply(1:length(distance_estimate$pair), function(mem) {
+          find_member(clusters, as.character(unname(distance_estimate$pair[mem])[[1]]))
+        })))
+        estimated_pair <- tibble(pair = estimated_pair, coord = c("x", "y", "xend", "yend"))
+        estimated_pair <- estimated_pair %>%
+          pivot_wider(names_from = coord, values_from = pair)
+        actual_result <- tibble(
+          method = m,
+          d = distance_estimate$d
+        )
+        result <- bind_cols(result, estimated_pair)
+      }
+      result <- bind_rows(result, actual_result)
+    }
+  }
+  result
 }
+cluster_distance(clusters)
+cluster_distance(clusters, all_in_table = TRUE)
+cluster_distance(clusters, method = "max")
+cluster_distance(clusters, method = "average")
+cluster_distance(clusters, method = "centroid", type = "ASED")
+cluster_distance(clusters, method = "centroid", type = "Csebisev")
