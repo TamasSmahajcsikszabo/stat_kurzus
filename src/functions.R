@@ -697,6 +697,7 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
     } else if (method == "average") {
       result <- list(
         d = mean(distances),
+        pair = NA,
         method = method,
         type = type
       )
@@ -717,27 +718,84 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
     result <- tibble()
     for (m in c("min", "max", "average", "centroid")) {
       distance_estimate <- cluster_distance(clusters, method = m, type = type)
-      if (m != "average") {
+      if (!m %in% c("average", "centroid")) {
         estimated_pair <- unname(unlist(lapply(1:length(distance_estimate$pair), function(mem) {
-          find_member(clusters, as.character(unname(distance_estimate$pair[mem])[[1]]))
+          find_member(
+            clusters,
+            as.character(unname(distance_estimate$pair[mem])[[1]])
+          )
         })))
+
         estimated_pair <- tibble(pair = estimated_pair, coord = c("x", "y", "xend", "yend"))
         estimated_pair <- estimated_pair %>%
           pivot_wider(names_from = coord, values_from = pair)
+      }
+      if (m == "centroid") {
+        estimated_pair <- tibble(data.frame(matrix(unname(unlist(distance_estimate$pair)), byrow = TRUE, nrow = 1)))
+        names(estimated_pair) <- c("x", "y", "xend", "yend")
+      }
+      if (m != "average") {
         actual_result <- tibble(
           method = m,
           d = distance_estimate$d
         )
-        result <- bind_cols(result, estimated_pair)
+        actual_result <- bind_cols(actual_result, estimated_pair)
+      } else {
+        actual_result <- tibble(
+          method = m,
+          d = distance_estimate$d,
+          x = NA,
+          y = NA,
+          xend = NA,
+          yend = NA
+        )
       }
       result <- bind_rows(result, actual_result)
     }
   }
   result
 }
-cluster_distance(clusters)
-cluster_distance(clusters, all_in_table = TRUE)
-cluster_distance(clusters, method = "max")
-cluster_distance(clusters, method = "average")
-cluster_distance(clusters, method = "centroid", type = "ASED")
-cluster_distance(clusters, method = "centroid", type = "Csebisev")
+# cluster_distance(clusters)
+# cluster_distance(clusters, all_in_table = TRUE)
+# cluster_distance(clusters, method = "max")
+# cluster_distance(clusters, method = "average")
+# cluster_distance(clusters, method = "centroid", type = "ASED")
+# cluster_distance(clusters, method = "centroid", type = "Csebisev")
+
+cluster_distance_plot <- function(clusters, type = "SED") {
+  cluster_data <- tibble()
+  for (c in 1:length(clusters)) {
+    cluster <- clusters[[c]]
+    members <- data.frame(matrix(unname(unlist(cluster)), byrow = TRUE, ncol = 2))
+    colnames(members) <- c("x", "y")
+    actual_cluster <- tibble(cluster = c)
+    actual_cluster <- bind_cols(actual_cluster, members)
+    actual_cluster$name <- names(cluster)
+    cluster_data <- bind_rows(cluster_data, actual_cluster)
+  }
+  cluster_data$Cluster <- as.character(cluster_data$cluster)
+  x_range <- range(cluster_data$x)
+  y_range <- range(cluster_data$y)
+
+  distance_data <- cluster_distance(clusters, all_in_table = TRUE, type = type)
+  label <- ""
+  for (r in 1:nrow(distance_data)) {
+    label <- paste0(label, distance_data[r, ]$method, ": ", round(distance_data[r, ]$d, 3), "\n")
+  }
+  label_data <- tibble(x = x_range[1], y = y_range[1], label = label)
+
+  ggplot() +
+    geom_point(data = cluster_data, aes(x, y, color = Cluster), size = 4) +
+    geom_text(data = cluster_data, aes(x, y, label = name), vjust = 1.5, hjust = 1.5, color = "black") +
+    scale_color_manual(values = c("coral", "cornflowerblue")) +
+    xlim(x_range[1] - x_range[1] / 2, x_range[2] + x_range[1] / 2) +
+    ylim(y_range[1] - y_range[1] / 2, y_range[2] + y_range[1] / 2) +
+    theme_light() +
+    geom_segment(data = distance_data, aes(x = x, y = y, xend = xend, yend = yend, linetype = method), arrow = arrow(type = "closed", ends = "both", angle = 25, length = unit(0.15, "inches")), alpha = 1 / 8, show.legend = FALSE) +
+    geom_point(data = distance_data[4, ], aes(x, y), shape = 13, size = 3, color = "grey50") +
+    geom_text(data = distance_data[4, ], aes(x, y), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
+    geom_point(data = distance_data[4, ], aes(xend, yend), shape = 13, size = 3, color = "grey50") +
+    geom_text(data = distance_data[4, ], aes(xend, yend), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
+    geom_text_repel(data = distance_data %>% mutate(labelx = (x + xend) / 2, labely = (y + yend) / 2), aes(labelx, labely, label = paste0(method))) +
+    geom_text(data = label_data, aes(x, y, label = label))
+}
