@@ -631,3 +631,7 @@ distance <- function(inputVector1, inputVector2, type = "ASED", all_in_table = F
 # distance(inputVector1, inputVector2, type = "Manhattan")
 # distance(inputVector1, inputVector2, type = "Csebisev")
 # distance(inputVector1, inputVector2, all_in_table=TRUE)
+
+cluster_distance <- function(clusters, method="min"){
+  
+}
