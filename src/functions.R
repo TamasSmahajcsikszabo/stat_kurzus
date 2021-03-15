@@ -7,7 +7,7 @@ library(tidyverse)
 library(ggrepel)
 library(concaveman)
 library(ggforce)
-sourceCpp("../../src/functions.cpp")
+# sourceCpp("../../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -684,7 +684,7 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
   if (!all_in_table) {
     if (method == "min") {
       result <- list(
-        d = rorund(min(distances), rounding),
+          d = round(min(distances), rounding),
         pair = pairs[distances == min(distances), ],
         method = method,
         type = type
@@ -786,6 +786,7 @@ cluster_distance_plot <- function(clusters, type = "SED") {
   label_data <- tibble(x = x_range[1], y = y_range[1], label = label)
 
   ggplot() +
+    geom_mark_hull(data = cluster_data, aes(x, y, color = Cluster, fill = Cluster, group = Cluster)) +
     geom_point(data = cluster_data, aes(x, y, color = Cluster), size = 4) +
     geom_text(data = cluster_data, aes(x, y, label = name), vjust = 1.5, hjust = 1.5, color = "black") +
     scale_color_manual(values = c("coral", "cornflowerblue")) +
@@ -798,7 +799,17 @@ cluster_distance_plot <- function(clusters, type = "SED") {
     geom_point(data = distance_data[4, ], aes(xend, yend), shape = 13, size = 3, color = "grey50") +
     geom_text(data = distance_data[4, ], aes(xend, yend), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
     geom_text_repel(data = distance_data %>% mutate(labelx = (x + xend) / 2, labely = (y + yend) / 2), aes(labelx, labely, label = paste0(method))) +
-    geom_text(data = label_data, aes(x, y, label = label)) +
-    geom_mark_hull(data = cluster_data, aes(x, y, color = Cluster, fill = Cluster, group = Cluster)) +
+      geom_text(data = label_data, aes(x, y, label = label)) +
     scale_fill_manual(values = c("coral", "cornflowerblue"))
+}
+
+k_means_eval <- function(dataset, k=3:5, nstart=100, iter.max=100){
+  results <- tibble()
+  for (j in k){
+    clust <- kmeans(dataset, j, nstart = nstart, iter.max = iter.max)
+    internal_criteria <-  tibble(data.frame(intCriteria(dataset, clust$cluster, "all")))
+    internal_criteria$clusters <- j
+    results <- bind_rows(results, internal_criteria)
+  }
+  results
 }

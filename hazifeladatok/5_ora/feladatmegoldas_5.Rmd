@@ -1,7 +1,9 @@
 ---
 title: "Házi feladatok megoldása 5. Klaszterelemzés"
 csl: apa7.csl
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 Smahajcsik-Szabó Tamás, M9IJYM
@@ -102,6 +104,8 @@ cluster_distance_plot(clusters, type="ASED")
 
 ### 5. A ROPstat Relokáció modulja segítségével készíts 3, 4 és 5 klaszteres megoldást a Ptelj és Pmagány változóra standardizálással és hasonlítsd össze e megoldásokat a 4.4. táblázat adekvációs mutatói segítségével! Melyik klaszterstruktúra tűnik a legjobbnak?
 
+A standardizálást követően képzett klaszterek adekvációs mutatóit az alábbi táblázat foglalja össze. A magyarázott varianciaarány
+
 
 ```{r echo = FALSE}
 
@@ -125,49 +129,26 @@ for (i in 1:length(names(dataset))) {
 }
 cluster_data <- dataset[, colindex]
 scaled <- scale(cluster_data)
-k_means_eval <- function(dataset, k=3:5, nstart=100, iter.max=100, summary_table=FALSE){
-    results <- list()
-    i <- 1
-    for (j in k){
-        clust <- kmeans(dataset, j, nstart = nstart, iter.max = iter.max)
-        internal_criteria <-  intCriteria(dataset, clust$cluster, "all")
-        res[[1]] <- clust
-        res[[2]] <- internal_criteria
-        results[[i]] <- res
-        i <- i+1
-    }
-    if(summary_table){
-        summary_df <- tibble()
-        for (j in 1:length(results)) {
-            actual <- tibble(data.frame(results[j][[1]]$intCrit))
-            summary_df <- bind_rows(summary_df, actual)
-        }
-    } else {
-        results
-    }
-}
+ROPqc <- read.table("qc.csv", sep=";", header=TRUE)
+names(ROPqc)[1] <- "k"
 
-trained_clusters <- k_means_eval(scaled)
-trained_clusters[1]
+knitr::kable(ROPqc)
+```
 
-x <- rbind(matrix(rnorm(100, mean = 0, sd = 0.5), ncol = 2),
-matrix(rnorm(100, mean = 1, sd = 0.5), ncol = 2),
-matrix(rnorm(100, mean = 2, sd = 0.5), ncol = 2))
 
-cl <- kmeans(x, 3)
-# Compute all the internal indices
-intCriteria(x,cl$cluster,"all")
-# Compute some of them
-intCriteria(x,cl$cluster,c("C_index","Calinski_Harabasz","Dunn"))
-# The names are case insensitive and can be abbreviated
-intCriteria(x,cl$cluster,c("det","cal","dav"))
+```{r echo = FALSE}
+trained_clusters <- k_means_eval(scaled) %>% 
+  pivot_longer(1:42, names_to = "qc", values_to="value") %>%
+  mutate(Klaszterek = as.factor(clusters))
+ggplot(trained_clusters) +
+  geom_col(aes(Klaszterek, value, fill=Klaszterek)) +
+  facet_wrap(~qc, scales="free") +
+  scale_fill_manual(values=c("coral", "coral4", "grey60")) +
+  labs(
+    title = "A clusterCrit adta adekvációs mutatók",
+    x = "Klaszterek (k = 3:5)",
+    y = "Adekvációs mutató értékei"
+  )
+  
 
-#clustering.ch <- kmeansruns(scaled, krange = 1:10, criterion = "ch")
-#clustering.asw <- kmeansruns(scaled, krange = 1:10, criterion = "asw")
-#critframe <- data.frame(k = 1:10, ch = scale(clustering.ch$crit), asw = scale(clustering.asw$crit))
-#critframe <- melt(critframe, id.vars = c("k"), variable.name = "measure", value.name = "score")
-#ggplot(critframe, aes(x = k, y = score, color = measure)) +
-#  geom_point(aes(shape = measure)) +
-#  geom_line(aes(linetype = measure)) +
-#  scale_x_continuous(breaks = 1:10, labels = 1:10)
 ```
