@@ -5,6 +5,8 @@ library(caret)
 library(tibble)
 library(tidyverse)
 library(ggrepel)
+library(concaveman)
+library(ggforce)
 sourceCpp("../../src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
@@ -645,7 +647,7 @@ KL3 <- list(
 )
 clusters <- list(KL2, KL3)
 
-cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_table = FALSE) {
+cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_table = FALSE, rounding = 2) {
   for (c in 1:length(clusters)) {
     cluster <- clusters[c][[1]]
     members <- names(cluster)
@@ -682,21 +684,21 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
   if (!all_in_table) {
     if (method == "min") {
       result <- list(
-        d = min(distances),
+        d = rorund(min(distances), rounding),
         pair = pairs[distances == min(distances), ],
         method = method,
         type = type
       )
     } else if (method == "max") {
       result <- list(
-        d = max(distances),
+        d = round(max(distances), rounding),
         pair = pairs[distances == max(distances), ],
         method = method,
         type = type
       )
     } else if (method == "average") {
       result <- list(
-        d = mean(distances),
+        d = round(mean(distances), rounding),
         pair = NA,
         method = method,
         type = type
@@ -706,7 +708,7 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
         compute_centroid(clusters[[c]])
       })
       names(centroids) <- paste0("centroid", 1:length(clusters))
-      d <- distance(centroids[[1]], centroids[[2]], type = type)$d
+      d <- round(distance(centroids[[1]], centroids[[2]], type = type)$d, rounding)
       result <- list(
         d = d,
         pair = centroids,
@@ -761,8 +763,6 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
 # cluster_distance(clusters, method = "average")
 # cluster_distance(clusters, method = "centroid", type = "ASED")
 # cluster_distance(clusters, method = "centroid", type = "Csebisev")
-library(concaveman)
-library(ggforce)
 cluster_distance_plot <- function(clusters, type = "SED") {
   cluster_data <- tibble()
   for (c in 1:length(clusters)) {
@@ -798,7 +798,7 @@ cluster_distance_plot <- function(clusters, type = "SED") {
     geom_point(data = distance_data[4, ], aes(xend, yend), shape = 13, size = 3, color = "grey50") +
     geom_text(data = distance_data[4, ], aes(xend, yend), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
     geom_text_repel(data = distance_data %>% mutate(labelx = (x + xend) / 2, labely = (y + yend) / 2), aes(labelx, labely, label = paste0(method))) +
-    geom_text(data = label_data, aes(x, y, label = label))+
-    geom_mark_hull(data=cluster_data, aes(x,y,color=Cluster,fill=Cluster, group=Cluster)) +
+    geom_text(data = label_data, aes(x, y, label = label)) +
+    geom_mark_hull(data = cluster_data, aes(x, y, color = Cluster, fill = Cluster, group = Cluster)) +
     scale_fill_manual(values = c("coral", "cornflowerblue"))
 }

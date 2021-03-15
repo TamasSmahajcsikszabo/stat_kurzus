@@ -65,7 +65,7 @@ knitr::kable(distance(B, C, type="ED", all_in_table=TRUE, custom_names= c("Távo
 
 ### 3. Számítsd ki a 4.4. ábrán látható KL2 és KL3 klaszter távolságát a 4.2. táblázat 1., 2., 3. és 5. távolságtípusára, ha a személytávolságra a SED távolságot használjuk!
 
-```{r echo=FALSE, fig.width=10, fig.height=10}
+```{r echo=FALSE, fig.width=8, fig.height=6}
 KL2 <- list(
   "E" = c(3, 7),
   "F" = c(6, 7),
@@ -81,3 +81,93 @@ knitr::kable(cluster_distance(clusters, all_in_table=TRUE, type="SED")[,c(1,2)])
 cluster_distance_plot(clusters, type="SED")
 ```
 
+### 4. Számítsd ki a 4.4. ábrán látható KL2 és KL3 klaszter távolságát a 4.2. táblázat 1., 2., 3. és 5. távolságtípusára, ha a személytávolságra az ASED távolságot használjuk!
+
+```{r echo=FALSE, fig.width=8, fig.height=6}
+KL2 <- list(
+  "E" = c(3, 7),
+  "F" = c(6, 7),
+  "D" = c(3, 5)
+)
+
+KL3 <- list(
+  "G" = c(5, 2),
+  "H" = c(7, 1)
+)
+clusters <- list(KL2, KL3)
+knitr::kable(cluster_distance(clusters, all_in_table=TRUE, type="ASED")[,c(1,2)])
+cluster_distance_plot(clusters, type="ASED")
+```
+
+
+### 5. A ROPstat Relokáció modulja segítségével készíts 3, 4 és 5 klaszteres megoldást a Ptelj és Pmagány változóra standardizálással és hasonlítsd össze e megoldásokat a 4.4. táblázat adekvációs mutatói segítségével! Melyik klaszterstruktúra tűnik a legjobbnak?
+
+
+```{r echo = FALSE}
+
+library(fpc)
+library(clusterCrit)
+
+patterns <- c("PMag*", "PTelj*")
+matching <-lapply(patterns, function(p){str_detect(names(dataset), p)} )
+colindex <- c()
+for (i in 1:length(names(dataset))) {
+    sublist <- c()
+    for (j in 1:3) {
+        index <- matching[j][[1]][[i]]
+        sublist <- c(sublist, index)
+    }
+    if (sum(sublist) > 0) {
+        colindex <- c(colindex, TRUE)
+    } else {
+        colindex <- c(colindex, FALSE)
+    }
+}
+cluster_data <- dataset[, colindex]
+scaled <- scale(cluster_data)
+k_means_eval <- function(dataset, k=3:5, nstart=100, iter.max=100, summary_table=FALSE){
+    results <- list()
+    i <- 1
+    for (j in k){
+        clust <- kmeans(dataset, j, nstart = nstart, iter.max = iter.max)
+        internal_criteria <-  intCriteria(dataset, clust$cluster, "all")
+        res[[1]] <- clust
+        res[[2]] <- internal_criteria
+        results[[i]] <- res
+        i <- i+1
+    }
+    if(summary_table){
+        summary_df <- tibble()
+        for (j in 1:length(results)) {
+            actual <- tibble(data.frame(results[j][[1]]$intCrit))
+            summary_df <- bind_rows(summary_df, actual)
+        }
+    } else {
+        results
+    }
+}
+
+trained_clusters <- k_means_eval(scaled)
+trained_clusters[1]
+
+x <- rbind(matrix(rnorm(100, mean = 0, sd = 0.5), ncol = 2),
+matrix(rnorm(100, mean = 1, sd = 0.5), ncol = 2),
+matrix(rnorm(100, mean = 2, sd = 0.5), ncol = 2))
+
+cl <- kmeans(x, 3)
+# Compute all the internal indices
+intCriteria(x,cl$cluster,"all")
+# Compute some of them
+intCriteria(x,cl$cluster,c("C_index","Calinski_Harabasz","Dunn"))
+# The names are case insensitive and can be abbreviated
+intCriteria(x,cl$cluster,c("det","cal","dav"))
+
+#clustering.ch <- kmeansruns(scaled, krange = 1:10, criterion = "ch")
+#clustering.asw <- kmeansruns(scaled, krange = 1:10, criterion = "asw")
+#critframe <- data.frame(k = 1:10, ch = scale(clustering.ch$crit), asw = scale(clustering.asw$crit))
+#critframe <- melt(critframe, id.vars = c("k"), variable.name = "measure", value.name = "score")
+#ggplot(critframe, aes(x = k, y = score, color = measure)) +
+#  geom_point(aes(shape = measure)) +
+#  geom_line(aes(linetype = measure)) +
+#  scale_x_continuous(breaks = 1:10, labels = 1:10)
+```
