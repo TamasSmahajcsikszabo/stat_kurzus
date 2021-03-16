@@ -2,6 +2,7 @@
 title: "Házi feladatok megoldása 5. Klaszterelemzés"
 csl: apa7.csl
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -33,9 +34,9 @@ suppressMessages(labels <- read_csv('../../data/labels.csv'))
 
 ### 1. Keress nemlineáris kapcsolatot a PIK 4 skálája és a PERMA Magányosság (Pmagány) és Teljesítmény (Ptelj) skálája között!
 
-Az alábbi ábrán egy 2-4 fok közötti polinomiális trendvonalat illesztettem az adatokra. A legvilágosabb vonal lineáris trendvonal, míg a 2-4 fokok közti vonalak jelentős átfedéssel a sötét trendvonalak.
+Az alábbi ábrán egy 1-4 fok közötti polinomiális trendvonalat illesztettem az adatokra. A legvilágosabb vonal lineáris trendvonal, míg a 2-4 fokok közti vonalak jelentős átfedéssel a sötét trendvonalak. További elemzések során, lokálisan súlyozott regressziós elemzést is futtattam (LOWESS), mely hasonlóképpen, elsősorban a Magányosság tétetelinél rajzolt ki nem lineáris kapcsolatokat.
 
-```{r echo=FALSE, fig.width = 10, fig.height=10}
+```{r echo=FALSE, fig.width =8, fig.height=6}
 patterns <- c("PIK", "PMag*", "PTelj*")
 matching <-lapply(patterns, function(p){str_detect(names(dataset), p)} )
 colindex <- c()
@@ -53,12 +54,27 @@ for (i in 1:length(names(dataset))) {
 }
 selected_data <- dataset[, colindex]
 
-exploration_plot(selected_data, pol=4, autotune=FALSE, multiple_lines = TRUE)
+exploration_plot(selected_data, pol=5, autotune=FALSE, multiple_lines = TRUE)
 ```
 
-    Mint a lentebbi táblázatból látható, a megmagyarázott variancia 
+Mint a lentebbi táblázatból látható, a megmagyarázott variancia (adjusted R squared, ARS) értéke páronkénti polinomiális regressziók esetében maximum értékét nagyobb mint 1 fok esetén éri el több változópár esetében is. A fok értékét 5-ben maximalizáltam, és a legtöbb esetben a harmadfokú polinomiális komponens eredményezi a legmagasabb megmagyarázott variancia arányt. Magasabb értékeknél (maximális fok 8) elltűnik a PIK-AV és a Teljesítmény esetén a lineáris kapcsolat, és egy nem lineáris trendvonal jobb magyarázó erővel bír. 
+
+```{r echo=FALSE}
+knitr::kable(readRDS("best_ars.RDS"), "simple")
+```
+
+
+Alább a lokálisan súlyozott smoother trendvonalakat közlöm konfidencia régiókkal.
+
+```{r echo=FALSE, fig.height=6, fig.width=8, warning=FALSE}
+mute(exploration_plot(selected_data, span =0.5, pol=NA))
+```
+Összességében a Magányosság tétel PIK-tételekkel való kapcsolataiban mutatkozik nem lineáris kapcsolat mind polinomiális, mint LOWESS trendvonalak tekintetében.
+
 
 ### 2. Számítsd ki Vargha (2021) alapján a 4.2. ábra B és C személyének távolságát a 4.1. táblázat összes távolságtípusára!
+
+Az alábbi táblázatban összegeztem a távolságértékeket típus szerint.
 
 ```{r echo =FALSE}
 B <- c(5, 2, 2, 4)
@@ -69,6 +85,8 @@ knitr::kable(distance(B, C, type="ED", all_in_table=TRUE, custom_names= c("Távo
 ```
 
 ### 3. Számítsd ki a 4.4. ábrán látható KL2 és KL3 klaszter távolságát a 4.2. táblázat 1., 2., 3. és 5. távolságtípusára, ha a személytávolságra a SED távolságot használjuk!
+
+Alább először táblázatosan közlöm, majd grafikonon ábrázolom a SED távolságokat a KL2 és KL3 klaszterek között.
 
 ```{r echo=FALSE, fig.width=8, fig.height=6}
 KL2 <- list(
@@ -87,6 +105,8 @@ cluster_distance_plot(clusters, type="SED")
 ```
 
 ### 4. Számítsd ki a 4.4. ábrán látható KL2 és KL3 klaszter távolságát a 4.2. táblázat 1., 2., 3. és 5. távolságtípusára, ha a személytávolságra az ASED távolságot használjuk!
+
+Alább először táblázatosan közlöm, majd grafikonon ábrázolom az ASED távolságokat a KL2 és KL3 klaszterek között.
 
 ```{r echo=FALSE, fig.width=8, fig.height=6}
 KL2 <- list(
@@ -107,7 +127,7 @@ cluster_distance_plot(clusters, type="ASED")
 
 ### 5. A ROPstat Relokáció modulja segítségével készíts 3, 4 és 5 klaszteres megoldást a Ptelj és Pmagány változóra standardizálással és hasonlítsd össze e megoldásokat a 4.4. táblázat adekvációs mutatói segítségével! Melyik klaszterstruktúra tűnik a legjobbnak?
 
-A standardizálást követően képzett klaszterek adekvációs mutatóit az alábbi táblázat foglalja össze. A magyarázott varianciaarány
+A standardizálást követően képzett klaszterek adekvációs mutatóit az alábbi táblázat foglalja össze. A megmagyarázott varianciaarány (EESS%) alapján minél több klasztert képzünk a k-központú elemzés során, az arány emelkedik, hiszen természetszerűleg közelítunk az adatok eleve adott változatosságához. A pontbiszeriális mutatók tekintetében azonban a k=3 struktúra képvisel egy kicsivel jobb, homogénebb konfigurációt. Ezt árnyalja a CLdelta érték, mely k=4 esetén jelez nagyobb fokú szeparációt a különböző klaszterbe tartozók távolságának arányával az azonosba tartozókhoz képest. Hasonló mintázatot tükröz a Silhouette mutató is, 4 klaszternél a személyek átlagosan közelebb vannak a saját klaszter centrumához mint a legközelebbi idegen klaszteréhez; de erre utal hasonló mintázatával a módosított Xien-Beni index is. A k=4 scenario fölényét támasztja alá a GDI24 is, mely az ideális > 1,5 értékét ekkor veszi fel. A HCÁtlag szerint is k=4 egy homogén struktrát eredményez. Noha k=5 esetében a homogenitás kedvezőbb, az összes egyéb mutató (különösen a GDI24) szerint alulmarad az öt klaszteres megoldás a néggyel szemben. 
 
 
 ```{r echo = FALSE}
@@ -133,13 +153,13 @@ for (i in 1:length(names(dataset))) {
 cluster_data <- dataset[, colindex]
 scaled <- scale(cluster_data)
 ROPqc <- read.table("qc.csv", sep=";", header=TRUE)
-names(ROPqc)[1] <- "k"
+names(ROPqc)<- c("k", "EESS%", "PB", "XBmod", "SH", "HCÁtlag", "CLdelta", "GDI24", "HCmin-max")
 
 knitr::kable(ROPqc)
 ```
+Amolyan függelékként alább táblázatban összegzek további adekvációs mutatókat a klaszterek száma szerint oszlopokba rendezve.
 
-
-```{r echo = FALSE}
+```{r echo = FALSE, fig.width=10, fig.height=10}
 trained_clusters <- k_means_eval(scaled) %>% 
   pivot_longer(1:42, names_to = "qc", values_to="value") %>%
   mutate(Klaszterek = as.factor(clusters))
@@ -151,7 +171,8 @@ ggplot(trained_clusters) +
     title = "A clusterCrit adta adekvációs mutatók",
     x = "Klaszterek (k = 3:5)",
     y = "Adekvációs mutató értékei"
-  )
+  ) +
+  theme(legend.position = "bottom")
   
 
 ```

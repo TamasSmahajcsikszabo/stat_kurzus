@@ -570,7 +570,8 @@ ars <- function(dataset, pol) {
   ars_data <- tibble()
   for (p in 1:nrow(varnames)) {
     for (j in 1:pol) {
-      formula <- as.formula(paste0(varnames[p, 1][[1]], " ~ poly(", varnames[p, 2][[1]], ", ", j, ")"))
+      formula <- as.formula(paste0(as.character(varnames[p, 1][[1]]), " ~ poly(", as.character(varnames[p, 2][[1]]), ", ", j, ")"))
+      print(formula)
       fit <- lm(formula, data = dataset)
       s <- summary(fit)$adj.r.squared
       actual_fit <- tibble(
@@ -589,7 +590,6 @@ ars <- function(dataset, pol) {
 
   best_ARS
 }
-
 
 mute <- function(exp) {
   invisible(capture.output(exp))
