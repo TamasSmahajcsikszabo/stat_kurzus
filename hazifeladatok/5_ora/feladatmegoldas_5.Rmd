@@ -54,14 +54,9 @@ for (i in 1:length(names(dataset))) {
 selected_data <- dataset[, colindex]
 
 exploration_plot(selected_data, pol=4, autotune=FALSE, multiple_lines = TRUE)
-#ars_data <- readRDS("ars_data.RDS")
 ```
 
-Mint a lentebbi táblázatból látható, a megmagyarázott variancia, noha kis fölénnyel, de egy másodfokú polinomiális 
-#```{r echo=FALSE, fig.width = 10, fig.height=10}
-#knitr::kable(ars_data)
-#```
-
+    Mint a lentebbi táblázatból látható, a megmagyarázott variancia 
 
 ### 2. Számítsd ki Vargha (2021) alapján a 4.2. ábra B és C személyének távolságát a 4.1. táblázat összes távolságtípusára!
 

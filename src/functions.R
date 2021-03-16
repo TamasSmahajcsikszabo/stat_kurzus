@@ -484,7 +484,7 @@ dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense
 global_colors <- paste0("grey", seq(60, 20, -10))
 
 
-exploration_plot <- function(dataset, id = "PIK", span=10, pol=4, autotune=TRUE, multiple_lines=FALSE) {
+exploration_plot <- function(dataset, id = "PIK", span = 10, pol = 4, autotune = TRUE, multiple_lines = FALSE) {
   plot_data <- dataset %>%
     pivot_longer(1:6, names_to = "var", values_to = "values") %>%
     arrange(var)
@@ -507,37 +507,35 @@ exploration_plot <- function(dataset, id = "PIK", span=10, pol=4, autotune=TRUE,
     plot_data <- bind_rows(plot_data, actual_df)
   }
 
-  if (is.na(pol)){
-    
-  p <- ggplot(plot_data) +
-    geom_point(aes(x, y), alpha = 1 / 10) +
-    geom_smooth(aes(x, y), color = "coral4", fill = "coral3", span=span) +
-    facet_wrap(~var1 ~ var2, scales = "free") +
-    theme_bw() +
-    labs(
-      x = "Upper variable",
-      y = "Lower variable"
-#      caption = "A pontárnyalat a sűrűséget fejezi ki\n A vonalak illesztett LOESS trendvonalak 95% konfidencia intervallummal"
-    )
-  } else  {
-   caption=""
-   if (autotune){
+  if (is.na(pol)) {
+    p <- ggplot(plot_data) +
+      geom_point(aes(x, y), alpha = 1 / 10) +
+      geom_smooth(aes(x, y), color = "coral4", fill = "coral3", span = span) +
+      facet_wrap(~var1 ~ var2, scales = "free") +
+      theme_bw() +
+      labs(
+        x = "Upper variable",
+        y = "Lower variable"
+        #      caption = "A pontárnyalat a sűrűséget fejezi ki\n A vonalak illesztett LOESS trendvonalak 95% konfidencia intervallummal"
+      )
+  } else {
+    caption <- ""
+    if (autotune) {
       tuning <- c()
       pols <- 2:pol
-      for (j in pols){
-        fit <- lm(y ~ poly(x, j), data=plot_data)
+      for (j in pols) {
+        fit <- lm(y ~ poly(x, j), data = plot_data)
         s <- summary(fit)$adj.r.squared
         names(s) <- j
         tuning <- c(tuning, s)
       }
       pol <- as.numeric(names(tuning)[tuning == max(tuning)])
       ars <- max(tuning)
-      caption <- paste0("Best polynomial degree is ", pol," with Adj. R Squared of ",ars)
-      
+      caption <- paste0("Best polynomial degree is ", pol, " with Adj. R Squared of ", ars)
     }
-    p <- ggplot(plot_data, aes(x,y)) +
+    p <- ggplot(plot_data, aes(x, y)) +
       geom_point(alpha = 1 / 10) +
-      stat_smooth(method="lm", formula = y ~ poly(x, pol), size = 1, color="coral3")+
+      stat_smooth(method = "lm", formula = y ~ poly(x, pol), size = 1, color = "coral3") +
       facet_wrap(~var1 ~ var2, scales = "free") +
       theme_bw() +
       labs(
@@ -545,11 +543,11 @@ exploration_plot <- function(dataset, id = "PIK", span=10, pol=4, autotune=TRUE,
         y = "Lower variable",
         caption = caption
       )
-    
+
     if (multiple_lines) {
-      p <- ggplot(plot_data, aes(x,y)) +
+      p <- ggplot(plot_data, aes(x, y)) +
         geom_point(alpha = 1 / 10) +
-        stat_smooth(method="lm", formula = y ~ poly(x, 1), size = 1, color="grey70", se=FALSE)+
+        stat_smooth(method = "lm", formula = y ~ poly(x, 1), size = 1, color = "grey70", se = FALSE) +
         facet_wrap(~var1 ~ var2, scales = "free") +
         theme_bw() +
         labs(
@@ -558,35 +556,40 @@ exploration_plot <- function(dataset, id = "PIK", span=10, pol=4, autotune=TRUE,
           caption = caption
         )
       for (j in unique(2:pol)) {
-        p <- p +  stat_smooth(method="lm", formula = y ~ poly(x, j), size = 1, color=global_colors[j], se=FALSE)
+        p <- p + stat_smooth(method = "lm", formula = y ~ poly(x, j), size = 1, color = global_colors[j], se = FALSE)
       }
     }
-  } 
+  }
   p
 }
 ars <- function(dataset, pol) {
-  plot_data <- dataset %>%
-    pivot_longer(1:6, names_to = "var", values_to = "values") %>%
-    arrange(var)
-  
   pool <- names(dataset)
   pool1 <- pool[str_detect(pool, id)]
   pool2 <- pool[!str_detect(pool, id)]
   varnames <- tibble(expand.grid(pool1, pool2))
   ars_data <- tibble()
- j=1
- p=1
   for (p in 1:nrow(varnames)) {
     for (j in 1:pol) {
-        formula <- as.formula(paste0(
-        fit <- lm(formula(as.character(varnames[p,1][[1]]) ~  poly(as.character(varnames[p,2][[1]]) ,j)), data=plot_data)
-        s <- summary(fit)$adj.r.squared
-        
-        names(s) <- j
-        tuning <- c(tuning, s)fit <- 
+      formula <- as.formula(paste0(varnames[p, 1][[1]], " ~ poly(", varnames[p, 2][[1]], ", ", j, ")"))
+      fit <- lm(formula, data = dataset)
+      s <- summary(fit)$adj.r.squared
+      actual_fit <- tibble(
+        x = varnames[p, 1][[1]],
+        y = varnames[p, 2][[1]],
+        degree = j,
+        ARS = s
+      )
+      ars_data <- bind_rows(ars_data, actual_fit)
     }
   }
+  best_ARS <- ars_data %>%
+    group_by(x, y) %>%
+    summarise(ARS = max(ARS)) %>%
+    left_join(ars_data)
+
+  best_ARS
 }
+
 
 mute <- function(exp) {
   invisible(capture.output(exp))
@@ -755,7 +758,7 @@ cluster_distance <- function(clusters, method = "min", type = "ASED", all_in_tab
   if (!all_in_table) {
     if (method == "min") {
       result <- list(
-          d = round(min(distances), rounding),
+        d = round(min(distances), rounding),
         pair = pairs[distances == min(distances), ],
         method = method,
         type = type
@@ -870,15 +873,15 @@ cluster_distance_plot <- function(clusters, type = "SED") {
     geom_point(data = distance_data[4, ], aes(xend, yend), shape = 13, size = 3, color = "grey50") +
     geom_text(data = distance_data[4, ], aes(xend, yend), label = "centroid", shape = 13, size = 4, color = "grey50", vjust = -1) +
     geom_text_repel(data = distance_data %>% mutate(labelx = (x + xend) / 2, labely = (y + yend) / 2), aes(labelx, labely, label = paste0(method))) +
-      geom_text(data = label_data, aes(x, y, label = label)) +
+    geom_text(data = label_data, aes(x, y, label = label)) +
     scale_fill_manual(values = c("coral", "cornflowerblue"))
 }
 
-k_means_eval <- function(dataset, k=3:5, nstart=100, iter.max=100){
+k_means_eval <- function(dataset, k = 3:5, nstart = 100, iter.max = 100) {
   results <- tibble()
-  for (j in k){
+  for (j in k) {
     clust <- kmeans(dataset, j, nstart = nstart, iter.max = iter.max)
-    internal_criteria <-  tibble(data.frame(intCriteria(dataset, clust$cluster, "all")))
+    internal_criteria <- tibble(data.frame(intCriteria(dataset, clust$cluster, "all")))
     internal_criteria$clusters <- j
     results <- bind_rows(results, internal_criteria)
   }
