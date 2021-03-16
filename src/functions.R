@@ -481,8 +481,10 @@ dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense
     ylim(3, 7))
 }
 # dense_point_plot(data, 15)
+global_colors <- paste0("grey", seq(60, 20, -10))
 
-exploration_plot <- function(dataset, id = "PIK") {
+
+exploration_plot <- function(dataset, id = "PIK", span=10, pol=4, autotune=TRUE, multiple_lines=FALSE) {
   plot_data <- dataset %>%
     pivot_longer(1:6, names_to = "var", values_to = "values") %>%
     arrange(var)
@@ -505,16 +507,85 @@ exploration_plot <- function(dataset, id = "PIK") {
     plot_data <- bind_rows(plot_data, actual_df)
   }
 
-  ggplot(plot_data) +
+  if (is.na(pol)){
+    
+  p <- ggplot(plot_data) +
     geom_point(aes(x, y), alpha = 1 / 10) +
-    geom_smooth(aes(x, y), color = "coral4", fill = "coral3") +
+    geom_smooth(aes(x, y), color = "coral4", fill = "coral3", span=span) +
     facet_wrap(~var1 ~ var2, scales = "free") +
     theme_bw() +
     labs(
-      x = "Felső változó",
-      y = "Alsó változó",
-      caption = "A pontárnyalat a sűrűséget fejezi ki\n A vonalak illesztett LOESS trendvonalak 95% konfidencia intervallummal"
+      x = "Upper variable",
+      y = "Lower variable"
+#      caption = "A pontárnyalat a sűrűséget fejezi ki\n A vonalak illesztett LOESS trendvonalak 95% konfidencia intervallummal"
     )
+  } else  {
+   caption=""
+   if (autotune){
+      tuning <- c()
+      pols <- 2:pol
+      for (j in pols){
+        fit <- lm(y ~ poly(x, j), data=plot_data)
+        s <- summary(fit)$adj.r.squared
+        names(s) <- j
+        tuning <- c(tuning, s)
+      }
+      pol <- as.numeric(names(tuning)[tuning == max(tuning)])
+      ars <- max(tuning)
+      caption <- paste0("Best polynomial degree is ", pol," with Adj. R Squared of ",ars)
+      
+    }
+    p <- ggplot(plot_data, aes(x,y)) +
+      geom_point(alpha = 1 / 10) +
+      stat_smooth(method="lm", formula = y ~ poly(x, pol), size = 1, color="coral3")+
+      facet_wrap(~var1 ~ var2, scales = "free") +
+      theme_bw() +
+      labs(
+        x = "Upper variable",
+        y = "Lower variable",
+        caption = caption
+      )
+    
+    if (multiple_lines) {
+      p <- ggplot(plot_data, aes(x,y)) +
+        geom_point(alpha = 1 / 10) +
+        stat_smooth(method="lm", formula = y ~ poly(x, 1), size = 1, color="grey70", se=FALSE)+
+        facet_wrap(~var1 ~ var2, scales = "free") +
+        theme_bw() +
+        labs(
+          x = "Upper variable",
+          y = "Lower variable",
+          caption = caption
+        )
+      for (j in unique(2:pol)) {
+        p <- p +  stat_smooth(method="lm", formula = y ~ poly(x, j), size = 1, color=global_colors[j], se=FALSE)
+      }
+    }
+  } 
+  p
+}
+ars <- function(dataset, pol) {
+  plot_data <- dataset %>%
+    pivot_longer(1:6, names_to = "var", values_to = "values") %>%
+    arrange(var)
+  
+  pool <- names(dataset)
+  pool1 <- pool[str_detect(pool, id)]
+  pool2 <- pool[!str_detect(pool, id)]
+  varnames <- tibble(expand.grid(pool1, pool2))
+  ars_data <- tibble()
+ j=1
+ p=1
+  for (p in 1:nrow(varnames)) {
+    for (j in 1:pol) {
+        formula <- as.formula(paste0(
+        fit <- lm(formula(as.character(varnames[p,1][[1]]) ~  poly(as.character(varnames[p,2][[1]]) ,j)), data=plot_data)
+        s <- summary(fit)$adj.r.squared
+        
+        names(s) <- j
+        tuning <- c(tuning, s)fit <- 
+    }
+  }
 }
 
 mute <- function(exp) {

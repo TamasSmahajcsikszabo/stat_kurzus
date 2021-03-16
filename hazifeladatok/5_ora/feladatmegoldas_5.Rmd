@@ -33,6 +33,8 @@ suppressMessages(labels <- read_csv('../../data/labels.csv'))
 
 ### 1. Keress nemlineáris kapcsolatot a PIK 4 skálája és a PERMA Magányosság (Pmagány) és Teljesítmény (Ptelj) skálája között!
 
+Az alábbi ábrán egy 2-4 fok közötti polinomiális trendvonalat illesztettem az adatokra. A legvilágosabb vonal lineáris trendvonal, míg a 2-4 fokok közti vonalak jelentős átfedéssel a sötét trendvonalak.
+
 ```{r echo=FALSE, fig.width = 10, fig.height=10}
 patterns <- c("PIK", "PMag*", "PTelj*")
 matching <-lapply(patterns, function(p){str_detect(names(dataset), p)} )
@@ -51,8 +53,14 @@ for (i in 1:length(names(dataset))) {
 }
 selected_data <- dataset[, colindex]
 
-mute(exploration_plot(selected_data))
+exploration_plot(selected_data, pol=4, autotune=FALSE, multiple_lines = TRUE)
+#ars_data <- readRDS("ars_data.RDS")
 ```
+
+Mint a lentebbi táblázatból látható, a megmagyarázott variancia, noha kis fölénnyel, de egy másodfokú polinomiális 
+#```{r echo=FALSE, fig.width = 10, fig.height=10}
+#knitr::kable(ars_data)
+#```
 
 
 ### 2. Számítsd ki Vargha (2021) alapján a 4.2. ábra B és C személyének távolságát a 4.1. táblázat összes távolságtípusára!
