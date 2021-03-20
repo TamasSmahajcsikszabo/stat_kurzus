@@ -1,5 +1,9 @@
 library(rtweet)
+library(tibble)
+library(tidyr)
 library(stringr)
+library(dplyr)
+library(purrr)
 
 appname <- "sw8"
 key <- "rP5ml7aClBgBPk6Nj97X5Rqw2"
@@ -16,10 +20,10 @@ twitter_token <- create_token(
   access_secret = access_key)
 
 
-twitter_data <- search_tweets("skywalker", n = 1000, token = twitter_token)
-movies <- c("movie", "imdb", "premiere", "cinema", "theatre", "actor", "actress", "director")
-covid <- c("covid", "covid19", "covid-sars", "mask", "restriction", "virus", "vaccine", "coronavirus")
-boardgames <- c("bgg", "BGG", "board game", "board game geek", "table top", "tabletop", "dice", "dicetower", "card")
+movies <- c("movie", "imdb", "premiere","premier", "cinema", "theatre", "actor", "actress", "director", "movie genre")
+covid <- c("covid", "covid19", "covid-sars", "mask", "wearing mask", "restriction", "virus", "vaccine", "coronavirus", "pandemic")
+boardgames <- c("boardgame", "board game", "tabletop", "dicetower")
+
 
 prepare_text <- function(twitter_data, title="twitter.txt"){
   texts <- twitter_data[twitter_data$lang=="en",]$text
@@ -35,7 +39,8 @@ scan_twitter <- function(tokens, n = 1000, ...) {
   search_query <- paste0(tokens, collapse = " OR ")
   twitter_data <- search_tweets(search_query, n = n, token = twitter_token, include_rts = FALSE)
   twitter_data <- twitter_data[twitter_data$lang == "en",]
-  filename <-paste0("data/", deparse(substitute(tokens)), "_",date)
+  twitter_data$class <- deparse(substitute(tokens))
+  filename <-paste0("twitter/data/", deparse(substitute(tokens)), "_",date)
   saveRDS(twitter_data, paste0(filename, ".RDS"))
   prepare_text(twitter_data, title= paste0(filename, ".txt"))
   
@@ -46,10 +51,52 @@ scan_twitter(movies)
 scan_twitter(covid)
 scan_twitter(boardgames)
 
+path <- "twitter/data"
+
+get_lines <- function(path) {
+  files <- list.files(path)
+  files <- files[str_detect(files, "RDS")]
+  results <- tibble()
+  
+  for (f in files) {
+    actual <- readRDS(paste0(path,"/", f))
+    if (!"class" %in% names(actual)){
+      actual$class <- str_sub(f, 1, str_locate(f, "_")[1,][[1]]-1)
+    }
+      results <- bind_rows(results, actual)
+  }
+  results
+  
+}
+
+all_data <- get_lines(path)
+prepare_text(all_data, "all_data_test.txt")
 
 
 
-#library(readr)
-#results <- read_csv("twitter_analysis.csv")
-#selected <- results[, names(results) %in% c("i", "you", "we", "swear", "netspeak", "assent", "nonflu", "filler")]
+library(readr)
+results <- read_csv("twitter/data/all_data_liwc_test.csv")[,-1]
 
+replace <- function(x){gsub(",", ".", x)}
+results <- map_df(results, replace)
+results <- map_df(results, as.numeric)
+combined_results <- bind_cols(all_data, results)
+
+colnames <- names(combined_results)
+d <- tibble(combined_results[, 101:185])
+clusters <- kmeans(d, 6)
+
+clust <- clusters$cluster
+
+combined_results$class_pred <- clust
+combined_results[,c("class", "class_pred")]
+
+library(ggplot2)
+pca <- prcomp(d)
+ncomp <- 2
+project <- predict(pca,d)[, 1:ncomp]
+
+project.plus <- cbind(as.data.frame(project), cluster = combined_results$class, pred=as.factor(clust))
+ggplot(project.plus, aes(PC1, PC2, color = cluster)) +
+  geom_point(aes(shape = pred), size = 2, alpha = 1/2)
+#  facet_wrap(~pred, scales = "free")
