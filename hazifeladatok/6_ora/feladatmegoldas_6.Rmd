@@ -1,0 +1,44 @@
+---
+title: "Házi feladatok megoldása 6. Hierarchikus klaszterelemzés"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+#suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+
+### 1. Végezz HKA-t ROPstatban a minimális távolság módszerrel a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Foglald táblázatba a QC-ket k=2 és k=10 között! Hány klaszteres megoldás tűnik a legjobbnak?
+
+```{r, echo=FALSE}
+res <- read_csv("1_stats.csv") %>%
+    mutate(`Egyesítendő klaszterek` = paste0(`Egyesítendő klaszterek`, " ", X11)) %>%
+    dplyr::select(-X11)
+knitr::kable(res, "simple")
+```
+
+
