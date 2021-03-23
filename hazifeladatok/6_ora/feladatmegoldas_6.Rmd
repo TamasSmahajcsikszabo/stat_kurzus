@@ -59,7 +59,7 @@ res %>%
   theme_light() +
   theme(legend.position = "bottom") +
   labs(x = "k, klaszterek száma",
-       caption = "Boxokban: EESS% csökkenés mértéke k értékek") +
+       caption = "Boxokban: EESS% csökkenés mértéke k értékek mentén \n Minden érték az előzőhöz képesti EESS% csökkenés mértékét mutatja % pontokban") +
   ylim(0, 100)
 ```
 
@@ -131,7 +131,7 @@ A leghomogénebb KL1 kalszter boldog, kevébé magányos, jól teljesítő szem�
 
 ### 5. Végezz HKA-t ROPstatban a Ward módszerrel a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Foglald táblázatba a QC-ket k=2 és k=10 között! Hány klaszteres megoldás tűnik a legjobbnak?
 
-A lenti táblázat eredményei és az 1. feladatban közölt könyök-grafikák alapján a k=3, azaz háromklaszteres megoldást fogadom el a Ward-módszerrek végrehajtott hierarchikus klaszterelemzésre. Ezt egyrészt alátámasztja, hogy k = 2 esetén több mint 15 százalékpontnyi esés következne be a magyarázott varianciában k=4 Xien-Beni, Pontbiszeriális együthhatóban mutatott értékei kedvezőtlenebb struktúrának írják le, mint a választott k=3 megoldást.
+A lenti táblázat eredményei és az 1. feladatban közölt könyök-grafikák alapján a k=3, azaz háromklaszteres megoldást fogadom el a Ward-módszerrel végrehajtott hierarchikus klaszterelemzésre. Ezt egyrészt alátámasztja, hogy k = 2 esetén több mint 15 százalékpontnyi esés következne be a magyarázott varianciában, a k=4 struktúrát pedig a Xien-Beni, a Pontbiszeriális együtthatóban mutatott értékei kedvezőtlenebb struktúrának írják le, mint a választott k=3 megoldást.
 
 ```{r echo=FALSE, warning=FALSE}
 knitr::kable(res[res$method == "Ward",2:10], "simple")
@@ -163,7 +163,7 @@ A kapott struktúra alapján elhatárolódik három, karakteres csoport. KL1-ben
 
 ### 7. Az 5. feladat beállításaival állj meg az 5-klaszteres megoldásnál! Melyik itt a leghomogénebb és a legheterogénebb klaszter? Mit gondolsz, miért pont ezek? EESS% mekkora ennél a megoldásnál?
 
-A Ward módszerével futtatott klaszterösszevonás k=5 mellett egy olyan klaszterstruktúrát eredményez (EESS% = 69.89%), ahol a leghomogénebb klaszter a KL2 (HC = 0.22), a legheterogénebb pedig a KL5 (HC = 1.65, immár a nem kívánt > 1 tartományban). Mivel feltételezhető, hogy a teljesítmény és a boldogság tételekre adott válaszok korrelálnak, míg a magányosság tétel ezekkel negatív lineáris kapcsolatban áll, a KL2 alacsony homogenitása abban áll, e három tétel mentén az elvárt mintázatot mutató személyek állnak, közepes standardizált átlagokkal. Ellenben a KL5 klaszter, noha mintázata elvárt (magas magányosság, alacsony teljesítmény és boldogság), jó láthatóan magas standardizált átlagai azt valószínűsítik, a személyek átlagos távolsága egymástól nagyobb, a klaszter sokszínűbb eseteket fog át.  
+A Ward módszerével futtatott klaszterösszevonás k=5 mellett egy olyan klaszterstruktúrát eredményez (EESS% = 69.89%), ahol a leghomogénebb klaszter a KL2 (HC = 0.22), a legheterogénebb pedig a KL5 (HC = 1.65, immár a nem kívánt > 1 tartományban). Mivel feltételezhető, hogy a teljesítmény és a boldogság tételekre adott válaszok pozitívan korrelálnak, míg a magányosság tétel ezekkel negatív  kapcsolatban áll, ezért a KL2 alacsony homogenitása abban áll, hogy e három tétel mentén az elvárt mintázatot mutató személyek állnak, közepes standardizált átlagokkal. Ellenben a KL5 klaszter, noha mintázata elvárt (magas magányosság, alacsony teljesítmény és boldogság), jó láthatóan magas standardizált átlagai azt valószínűsítik, a személyek átlagos távolsága egymástól nagyobb, a klaszter sokszínűbb eseteket fog át.  
 
 ```{r, echo = FALSE, fig.height=6, fig.width=10} 
 ward_data <- patterns[patterns$method == "Ward",]
