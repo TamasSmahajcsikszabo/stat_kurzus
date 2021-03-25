@@ -34,20 +34,24 @@ prepare_text <- function(twitter_data, title="twitter.txt"){
   writeLines(formatted, title)
 }
 
-scan_twitter <- function(tokens, n = 1000, ...) {
+scan_twitter <- function(tokens, n = 1000, path="", ...) {
   date <- as.character(str_sub(lubridate::now(),1,10)) 
   search_query <- paste0(tokens, collapse = " OR ")
   twitter_data <- search_tweets(search_query, n = n, token = twitter_token, include_rts = FALSE)
   twitter_data <- twitter_data[twitter_data$lang == "en",]
   twitter_data$class <- deparse(substitute(tokens))
-  filename <-paste0("twitter/data/", deparse(substitute(tokens)), "_",date)
+  if (path == "") {
+      prepath <- 'twitte/data'} else {prepath  <- path}
+  filename <-paste0(prepath, deparse(substitute(tokens)), "_",date)
   saveRDS(twitter_data, paste0(filename, ".RDS"))
   prepare_text(twitter_data, title= paste0(filename, ".txt"))
   
 }
 
 
-scan_twitter(movies)
+scan_twitter(movies, path = '../../stat_kurzus/twitter/data/')
+scan_twitter(covid, path = '../../stat_kurzus/twitter/data/')
+scan_twitter(boardgames, path = '../../stat_kurzus/twitter/data/')
 scan_twitter(covid)
 scan_twitter(boardgames)
 
@@ -69,13 +73,13 @@ get_lines <- function(path) {
   
 }
 
-all_data <- get_lines(path)
-prepare_text(all_data, "all_data_test.txt")
+all_data <- get_lines('data/')
+#prepare_text(all_data, "all_data_test.txt")
 
 
 
 library(readr)
-results <- read_csv("twitter/data/all_data_liwc_test.csv")[,-1]
+results <- read_csv("data/all_data_liwc_test.csv")[,-1]
 
 replace <- function(x){gsub(",", ".", x)}
 results <- map_df(results, replace)
@@ -100,3 +104,12 @@ project.plus <- cbind(as.data.frame(project), cluster = combined_results$class, 
 ggplot(project.plus, aes(PC1, PC2, color = cluster)) +
   geom_point(aes(shape = pred), size = 2, alpha = 1/2)
 #  facet_wrap(~pred, scales = "free")
+
+
+## personal functions
+grouping <- c("screen_name", names(combined_results[,101:185]))
+
+combined_results%>%
+    unique() %>%
+    group_by(screen_name) %>%
+
