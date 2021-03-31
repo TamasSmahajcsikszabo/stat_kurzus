@@ -131,4 +131,4 @@ ggplot(project.plus, aes(PC1, PC2, color = cluster)) +
 
 
 ## personal functions
-grouping <- c("screen_name", names(combined_results[, 101:185]))
+    grouping <- c("screen_name", names(combined_results[, 101:185]))
