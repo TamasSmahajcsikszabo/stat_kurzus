@@ -1,0 +1,184 @@
+---
+title: "Házi feladatok megoldása 6. Hierarchikus klaszterelemzés"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+#suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+
+### 1. Végezz HKA-t ROPstatban a minimális távolság módszerrel a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Foglald táblázatba a QC-ket k=2 és k=10 között! Hány klaszteres megoldás tűnik a legjobbnak?
+
+
+A minimális távolság módszerével végzett hierarchikus klaszeterelemzés eredményét az alábbi táblázat foglalja össze k=2 és k = 10 között.
+
+```{r, echo=FALSE}
+res <- read_delim("stats.csv", delim= ";")
+knitr::kable(res[res$method == "Min",2:10], "simple")
+```
+
+Továbbá a jelen, a 3. és az 5. feladatra vonatkozóan, az alábbi ábra az EESS% összarányában, illetve a minimális, a maximális és a Ward klaszterösszevonási módszerek szerinti lebontásban mutatja, miként változik k értékével az EESS% értéke is.
+
+```{r echo=FALSE, warning=FALSE, fig.height=6, fig.width=8}
+res %>% 
+  mutate(KL = factor(`KL#`, levels=10:2)) %>% 
+  group_by(method) %>% 
+  mutate(ES_change = `EESS%` - lead(`EESS%`)) %>%
+  mutate(ES_change = round(lag(ES_change), 3)) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_path(aes(KL, `EESS%`, group=method, linetype = method)) +
+  geom_label_repel(aes(KL, `EESS%`, label = ES_change), show.legend = FALSE, color="black") +
+  #scale_color_manual(values=c("coral4", "grey30", "grey50")) +
+  #scale_fill_manual(values=c("coral4", "grey30", "grey50")) +
+  theme_light() +
+  theme(legend.position = "bottom") +
+  labs(x = "k, klaszterek száma",
+       caption = "Boxokban: EESS% csökkenés mértéke k értékek mentén \n Minden érték az előzőhöz képesti EESS% csökkenés mértékét mutatja % pontokban") +
+  ylim(0, 100)
+```
+
+A minimális távolság módszere, mint klaszterképzési alap, nem kielégítő módszer, a 2 és 10 közötti klaszterszámban a megmagyarázott variancia következetesen rossz, így optimális megoldást ebben a k-tartományban, ezzel a módszerrel nem tudunk képezni. Az egyéb adekvációs mutatók, így a Xien-beni módosított együtthatója, a pontbiszeriális együttható és a Silhouette együttható mintázata alapján a k=4 és k=5 megoldás tűnik jobbnak, az egységesen rossz megoldások küzül.
+
+### 2. Készíts ábrát az előző feladat legjobb megoldásának centroidjai alapján a sima és a standardizált átlagokra!
+
+Az alábbi ábra a klaszterek (felső szempont) és k értékei (jobb szempont, esetünkben 2 elemzés) mentén mutatja be a standardizált átlagok szintjeit a három változó mentén.
+
+```{r, echo = FALSE, fig.height=6, fig.width=10} 
+patterns <- read_delim("patterns.csv", delim=";") %>% 
+  pivot_longer(2:4, names_to = "var", values_to = "val")
+
+replace <- function(x){gsub(",", ".", x)}
+min_data <- patterns[patterns$method == "Min",]
+ggplot() + 
+  geom_col(data = min_data[min_data$type == "stand", ], aes(var, as.numeric(replace(val)), group=Klaszter, fill=as.numeric(replace(val)) > 0),color = "black", show.legend = FALSE) +
+  facet_grid(~k~Klaszter, scales="free") +
+  geom_text(data = min_data[min_data$type == "stand", ], aes(0.75,2, label = HC)) +
+  theme_light() +
+  scale_fill_manual(values = c("grey70", "white")) +
+  labs(
+    title = "Minimális távolság módszerével képzett k=4 és k=5 klaszterstruktúra",
+    x = "Változók",
+    y = "Standardizált átlagok",
+    caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói"
+  )
+
+```
+
+Az értelmezhetőség alapján az 5 klaszteres megoldás tűnik megfelelőbbnek, de fontos tudni, hogy alacsony a megmagyarázott variancia a struktúra hátterében. A k=4 elemzés során (felső ábrasor), keletkezett egy átlagos csoport (KL1), amely minden értékben az átlagra illeszkedik (0), noha HC szerint kevésbé homogén klaszter. Adott egy KL2 kalszter mely boldogtalan, de egyébként enyébben magányos, és jobban teljesítő személyeket sűrít. A KL3 klaszterben magányos, boldogtalan és rosszul teljesítők állnak, míg a KL4 az előbbi klaszterhez hasonló, de kifejezetten teljesíteni képtelen boldogtalan,  magányosokat foglal magában. KL3 és KL4 mintázata hasonló, a struktrúra szakmailag kérdéseket vet fel.
+A k=5 esetében már érdekesebb a kép. Adott egy KL2 és KL3 klaszter, melyek mintázata egymás ellentéte: KL2-ben magányos, boldogtalan és alulteljesítők állnak, KL3-ban pedig jól teljesítő, nem magányos, boldogabb személyek. Adott továbbá egy KL4, ahol magányosságuk ellenére jobban teljesítő és boldogabb személyek állnak. Szakmailag érdekes klaszter. A KL1-ben kevésbé magányos, viszonylag boldog, de (talán egyéb okból?) rosszabbul  teljesítők állnak, míg a KL5 a korábbi k=4 struktuára jellegzetes depresszívjeit fogja közre.
+
+### 3. Végezz HKA-t ROPstatban a maximális távolság módszerrel a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Foglald táblázatba a QC-ket k=2 és k=10 között! Hány klaszteres megoldás tűnik a legjobbnak? 
+
+Az alábbi táblázat összegzi a maximális távolság módszerével képzett kalszterestruktúrákat.
+
+```{r echo=FALSE}
+
+knitr::kable(res[res$method == "Max",2:10], "simple")
+
+
+```
+
+A kedvező adekvációs mutatók (például Pontbiszeriális együttható, Xien-Beni és Silhouette együttható értékei mind 0.5 felettiek) mellett a k=4 struktúrát támogatja az, hogy k=3-ra lépés során egy jelentősebb 18.15% pontnyi EESS% esés következik be. Ennek alapján a négyklaszteres megoldást erősíti a maximális távolság módszere.
+
+
+### 4. Készíts ábrát az előző feladat legjobb megoldásának centroidjai alapján a sima és a standardizált átlagokra!
+
+```{r, echo = FALSE, fig.height=6, fig.width=10} 
+
+max_data <- patterns[patterns$method == "Max",]
+ggplot() + 
+  geom_col(data = max_data[max_data$type == "stand", ], aes(var, as.numeric(replace(val)), group=Klaszter, fill=as.numeric(replace(val)) > 0),color = "black", show.legend = FALSE) +
+  facet_grid(~k~Klaszter, scales="free") +
+  geom_text(data = max_data[max_data$type == "stand", ], aes(0.75,2, label = HC)) +
+  theme_light() +
+  scale_fill_manual(values = c("grey70", "white")) +
+  labs(
+    title = "Maximum távolság módszerével képzett k=4 klaszterstruktúra",
+    x = "Változók",
+    y = "Standardizált átlagok",
+    caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói"
+  )
+
+```
+
+A leghomogénebb KL1 kalszter boldog, kevébé magányos, jól teljesítő személyeket foglal magába. A KL2 klaszter a magas magányossága ellenére boldog és jól teljesítők klasztere, míg a KL3-4 hasonló mintázatú, csak fokozatában eltérő heterogén klaszterek, melyekbe a magányos, szomorú és rosszul teljesítők tartoznak. KL4 akár klinikai depresszív csoport is lehet, noha heterogenitása > 1 szinten áll.
+
+### 5. Végezz HKA-t ROPstatban a Ward módszerrel a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Foglald táblázatba a QC-ket k=2 és k=10 között! Hány klaszteres megoldás tűnik a legjobbnak?
+
+A lenti táblázat eredményei és az 1. feladatban közölt könyök-grafikák alapján a k=3, azaz háromklaszteres megoldást fogadom el a Ward-módszerrel végrehajtott hierarchikus klaszterelemzésre. Ezt egyrészt alátámasztja, hogy k = 2 esetén több mint 15 százalékpontnyi esés következne be a magyarázott varianciában, a k=4 struktúrát pedig a Xien-Beni, a Pontbiszeriális együtthatóban mutatott értékei kedvezőtlenebb struktúrának írják le, mint a választott k=3 megoldást.
+
+```{r echo=FALSE, warning=FALSE}
+knitr::kable(res[res$method == "Ward",2:10], "simple")
+```
+
+### 6. Készíts ábrát az előző feladat legjobb megoldásának centroidjai alapján a sima és a standardizált átlagokra!
+
+```{r, echo = FALSE, fig.height=6, fig.width=10} 
+
+ward_data <- patterns[patterns$method == "Ward",]
+ward_data <- ward_data[ward_data$k == 3, ]
+ggplot() + 
+  geom_col(data = ward_data[ward_data$type == "stand", ], aes(var, as.numeric(replace(val)), group=Klaszter, fill=as.numeric(replace(val)) > 0),color = "black", show.legend = FALSE) +
+  facet_grid(~k~Klaszter, scales="free") +
+  geom_text(data = ward_data[ward_data$type == "stand", ], aes(0.75,2, label = HC)) +
+  theme_light() +
+  scale_fill_manual(values = c("grey70", "white")) +
+  labs(
+    title = "Ward módszerével képzett k=3 klaszterstruktúra",
+    x = "Változók",
+    y = "Standardizált átlagok",
+    caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói"
+  )
+
+```
+
+A kapott struktúra alapján elhatárolódik három, karakteres csoport. KL1-ben a magányos, de jól teljesítő, az átlagnál kicsit boldogtalanabb "reziliens" személyeket értelmezem. Adott a KL2-es klaszter a kevésbé magányos, boldog és jól teljesítők köre. KL3 pedig a depresszív alcsoport, magányos, rosszul teljesít és boldogtalan, noha a klaszter heterogenitása már nem kívánatos szintű.
+
+
+### 7. Az 5. feladat beállításaival állj meg az 5-klaszteres megoldásnál! Melyik itt a leghomogénebb és a legheterogénebb klaszter? Mit gondolsz, miért pont ezek? EESS% mekkora ennél a megoldásnál?
+
+A Ward módszerével futtatott klaszterösszevonás k=5 mellett egy olyan klaszterstruktúrát eredményez (EESS% = 69.89%), ahol a leghomogénebb klaszter a KL2 (HC = 0.22), a legheterogénebb pedig a KL5 (HC = 1.65, immár a nem kívánt > 1 tartományban). Mivel feltételezhető, hogy a teljesítmény és a boldogság tételekre adott válaszok pozitívan korrelálnak, míg a magányosság tétel ezekkel negatív  kapcsolatban áll, ezért a KL2 alacsony homogenitása abban áll, hogy e három tétel mentén az elvárt mintázatot mutató személyek állnak, közepes standardizált átlagokkal. Ellenben a KL5 klaszter, noha mintázata elvárt (magas magányosság, alacsony teljesítmény és boldogság), jó láthatóan magas standardizált átlagai azt valószínűsítik, a személyek átlagos távolsága egymástól nagyobb, a klaszter sokszínűbb eseteket fog át.  
+
+```{r, echo = FALSE, fig.height=6, fig.width=10} 
+ward_data <- patterns[patterns$method == "Ward",]
+ward_data <- ward_data[ward_data$k == 5, ]
+ggplot() + 
+  geom_col(data = ward_data[ward_data$type == "stand", ], aes(var, as.numeric(replace(val)), group=Klaszter, fill=as.numeric(replace(val)) > 0),color = "black", show.legend = FALSE) +
+  facet_grid(~k~Klaszter, scales="free") +
+  geom_text(data = ward_data[ward_data$type == "stand", ], aes(0.75,2, label = HC)) +
+  theme_light() +
+  scale_fill_manual(values = c("grey70", "white")) +
+  labs(
+    title = "Ward módszerével képzett k=5 klaszterstruktúra",
+    x = "Változók",
+    y = "Standardizált átlagok",
+    caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói"
+  )
+
+```
