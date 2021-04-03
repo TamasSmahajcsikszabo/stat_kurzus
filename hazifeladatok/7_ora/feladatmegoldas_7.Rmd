@@ -1,0 +1,213 @@
+---
+title: "Házi feladatok megoldása 7."
+subtitle: "Hierarchikus klaszterelemzés SPSS-ben és R-ben"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+#suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+suppressMessages(labels <- read_csv('../../data/labels.csv'))
+```
+
+### 1. Végezz HKA-t SPSS-ben a minimális távolság módszerrel, SED távolsággal a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Hány klaszteres megoldás tűnik a legjobbnak az Agglomeration Schedule Coefficients oszlopának grafikus ábrázolása alapján? És a jégcsapdiagram alapján? És a dendrogram alapján?
+
+Az eredményekről az alábbi könyökábra tájékoztat. K=11 megoldás esetén az EESS % értékének csökkenése elsőként éri el a 4%-ot, így k=12-t fogadtam el. Noha később ez az érték 55% k = 3 után, ezt tekintettem egy első nagyobb törésnek a magyarázott variancia arányában, így ezt a struktúrát fogadtam el. 
+
+Noha az *icile* diagram áttekinthetősége csökkent a nagy változószám mellett, a dendogram már inkább volt a segítségemre. A nagyobb klaszterösszevonásokra viszonylag az iterációk végén került sor, és a fentebbi okokból elogadom a k=12 megoldást, de a dendogram nem mutatja az elvárt összevonási mintázatot, feltételezem, a minimális távolság módszere szuboptimális az adott adatokon.
+
+```{r echo = FALSE}
+result1 <- read_delim("SPSS/1.csv", delim = ";")
+
+ggplot() +
+  geom_path(data=result1, aes(Stage, EESS)) +
+  geom_point(data=result1[result1$EESS == 0.83,], aes(Stage, EESS), size = 4) +
+  geom_point(data=result1[result1$EESS == 0.83,], aes(Stage, EESS), size = 3, color = "white") +
+  geom_text(data=result1[result1$EESS == 0.83,], aes(Stage, EESS, label = paste0("k = ", k, "; EESS% = ", EESS * 100, "%")), size = 4, hjust = 1.4) +
+  theme_light() +
+  labs(
+    title = "Hierarchikus klaszterelemzés eredménye minimális távolság módszere \n és SED mellett",
+    subtitle = "Az EESS % csökkenés mértéke alapján a k=12 megoldás tűnik megfelelőnek",
+    x = "Klaszterösszevonás iterációja (SPSS: Stage)",
+    y = "EESS %"
+  )
+```
+
+
+### 2. Végezz HKA-t SPSS-ben a Ward módszerrel, SED távolsággal a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Hány klaszteres megoldás tűnik a legjobbnak az Agglomeration Schedule Coefficients oszlopának grafikus ábrázolása alapján? És a jégcsapdiagram alapján? És a dendrogram alapján?
+
+Hasonló grafikát képeztem, mely alapján a k=7 megoldást fogadom el az EESS% csökkenésének első nagyobb esete alapján. A dendogram is ezt erősítette meg.
+
+```{r echo = FALSE}
+result2 <- read_delim("SPSS/2.csv", delim = ";")
+
+ggplot() +
+  geom_path(data=result2, aes(Stage, EESS)) +
+  geom_point(data=result2[result2$EESS == 0.73,], aes(Stage, EESS), size = 4) +
+  geom_point(data=result2[result2$EESS == 0.73,], aes(Stage, EESS), size = 3, color = "white") +
+  geom_text(data=result2[result2$EESS == 0.73,], aes(Stage, EESS, label = paste0("k = ", k, "; EESS% = ", EESS * 100, "%")), size = 4, hjust = 1.4) +
+  theme_light() +
+  labs(
+    title = "Hierarchikus klaszterelemzés eredménye Ward módszere \n és SED mellett",
+    subtitle = "Az EESS % csökkenés mértéke alapján a k=7 megoldás tűnik megfelelőnek (k=6-re már 5% lenne)",
+    x = "Klaszterösszevonás iterációja (SPSS: Stage)",
+    y = "EESS %"
+  )
+```
+### 3. Mekkora az előző feladat 5-klaszteres megoldásában EESS% értéke? Vesd össze ezt a ROPstat hasonló elemzésében kapott értékkel (6. óra/7. feladat)!
+
+5 klaszteres megoldás esetén az EESS% `r result2[result2$k ==5, ]$EESS  * 100`%. 
+A ROPStat megoldása EESS% = 69.89% volt.
+
+### 4. Végezz HKA-t R-ben a minimális távolság módszerrel, SED távolsággal a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Hány klaszteres megoldás tűnik a legjobbnak a dendrogram alapján?  És az 5.22. ábra szerint elvégzett elemzés grafikonja alapján?
+
+A dendogram minimális távolság módszere mellett nagyo hasonló eredményt hoz mint az SPSS megoldása. Jól láthatóan a klaszterképzés eseti, nem nagyobb homogénebb csoportok kialakítása zajlik.
+
+```{r echo=FALSE, warning=FALSE}
+dataset <- read_delim("data.csv", delim=";")
+dataset_scaled <- scale(dataset)
+d <- dist(dataset_scaled, method="euclidean")
+clustering <- hclust(d, method="single")
+dhc <- as.dendrogram(clustering)
+ddata <- dendro_data(dhc, type = "rectangle")
+p <- ggplot(segment(ddata)) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend), alpha = 1/3) + 
+  theme_light()
+p
+```
+
+A könyök teszt hasonlóképp nem egyértelmű k=15 alatt, a Silhouett Index k=2-t valószínűsít.
+
+```{r echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(factoextra)
+library(stats)
+p1 <- fviz_nbclust(dataset_scaled, FUN = hcut, method = "wss", k.max = 15) +
+ggtitle("Könyökteszt") 
+p2 <- fviz_nbclust(dataset_scaled, FUN = hcut, method = "silhouette", k.max = 15) +
+ggtitle("Silhouette index") 
+gridExtra::grid.arrange(p1, p2, nrow = 1) 
+
+
+```
+
+A két és a tizenkét klaszteres megoldások további tesztelésére az *fpc* R csomag *clusterboost* függvényét használtam. Ez a funckió alapesetben B=100 bootstrap újramintázással teszteli az adott klaszterstruktúra stabilitását, azaz számon tartja a korábbi iterációban képzett klaszter megmarad-e, vagy feloszlik-e az újabb iteráció során. Az alábbiakban a stabilitási indexre [0 és 1 között], illetve a feloszlások számára közlöm az eredményeket.
+
+A Silhouette index alapján kínált k=2 megoldás elemzése során azt találjuk 100 esetből 40 alkalommal nem volt megismételhető egy stabil második klaszter. Mint az első feladat megoldásánál, itt is a minimális távolság nem megfelelőségében látom a klaszterstruktúra nem illeszedésének okát.
+
+```{r echo=FALSE, warning=FALSE}
+library(fpc)
+kbest.p <- 2
+cboot.clust2 <- readRDS("cboot2.RDS")
+solution2_stab <- round(cboot.clust2$bootmean, 4)
+solution2_dissolved <-cboot.clust2$bootbrd
+
+solution2 <- tibble(
+  k = c(1,2),
+  stabilitás = solution2_stab,
+  `feloszlások száma` = solution2_dissolved
+)
+knitr::kable(solution2, "simple")
+```
+
+
+Tizenkét klasztert tesztelve feltűnik, hogy több esetben is a k=2-höz képest is stabilabb struktrúrát tárunk fel, például a 3. vagy a 9. klaszter, de fontos, hogy a k=12 megoldás is csak egy EESS% mutató alapján került korábban kiválasztásra. Ennek alapján a minimális távolság egy algoritmustól függő megoldást hoz, amely arra tereli a figyelmet, hogy más módszer lenne megfelelő valós struktúrák kinyerésére a kérdéses három változó esetén.
+Az eredményeket továbbá úgy értelmezném, hogy a minimális távolság esetén adott egy erős, első klaszter k=2 és k=12 esetén is, de minden más struktúra instabil, azaz nem tudunk egy stabil csoportosítást leképezni, ha ezt a módszert követjük.
+
+```{r echo=FALSE, warning=FALSE}
+kbest.p <- 12
+cboot.clust12 <- readRDS("cboot12.RDS")
+solution12_stab <- round(cboot.clust12$bootmean, 4)
+solution12_dissolved <-cboot.clust12$bootbrd
+
+solution12 <- tibble(
+  k = seq(1,12),
+  stabilitás = solution12_stab,
+  `feloszlások száma` = solution12_dissolved
+)
+knitr::kable(solution12, "simple")
+```
+
+
+### 5. Végezz HKA-t R-ben a Ward módszerrel, SED távolsággal a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Hány klaszteres megoldás tűnik a legjobbnak a dendrogram alapján? És az 5.22. ábra szerint elvégzett elemzés grafikonja alapján?
+
+Az alábbi dendogram alalpján a k=7, illetve k=8 megoldások tűnnek megfelelőnek. Ez a Silhouette index adta k=2 megoldással nem fér össze.
+
+
+```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+clustering_ward <- hclust(d, method="ward.D2")
+dhc <- as.dendrogram(clustering_ward)
+ddata <- dendro_data(dhc, type = "rectangle")
+p <- ggplot(segment(ddata)) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend), alpha = 1/3) + 
+  geom_point(aes(x,y), color="grey30", alpha = 1/2, shape=1) +
+  theme_light()
+p
+```
+
+```{r echo=FALSE, warning=FALSE}
+criteria = 0.7
+ward_stability <- readRDS("ward_stability.RDS")
+summary <- ward_stability %>%
+  mutate(check = stabilitás >= criteria) %>%
+  group_by(k = k_total) %>%
+  summarise(`stabil klaszterek száma` = round(sum(check)/k, 3),
+              `átlagos klaszterstabilitás` = round(mean(stabilitás),3),
+              `minimum klaszterstabilits` = round(min(stabilitás),3),
+              `maximum klaszterstabilitás` = round(max(stabilitás),3)) %>%
+  unique()
+knitr::kable(summary, 'simple')
+```
+
+
+### 6. Mentsd el az előző feladat 5-klaszteres megoldását, másold be ROPstatba és ott a Validálás modul segítségével számítsd ki a főbb QC mutatókat! Vesd össze ezt a ROPstat hasonló elemzésében kapott értékekkel (6. óra/7. feladat)!
+
+Az alábbi táblázat tartalmazza a főbb mutatókat a ROPStat és az R megoldásaiból. A két rendszer nagyon hasonló melgoldásokra jutott. A legnagyobb eltérést a módosított Xien-Beni indexben találtam.
+
+```{r echo=FALSE, warning=FALSE}
+clusters <- tibble(clust = cutree(clustering_ward, k=5))
+dataset_clusters <- bind_cols(dataset, clusters)
+#write_csv(dataset_clusters, "dataset_clusters.csv")
+
+qc <- read_delim("QC.csv", delim=";")
+qc <- qc[,c(-6, -7, -9)]
+
+knitr::kable(
+  tibble(
+    QC = names(qc),
+    ROPStat = unname(unlist(qc[2,])),
+    R = unname(unlist(qc[1,]))
+  ),
+  "simple"
+)
+
+
+```
+
