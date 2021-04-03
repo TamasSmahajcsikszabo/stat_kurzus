@@ -78,10 +78,18 @@ top_users <- all_data %>%
   group_by(screen_name) %>%
   summarise(n = n()) %>%
   arrange(desc(n)) %>%
-  filter(n >= 5) %>%
+  filter(n >= 20) %>%
   dplyr::select(screen_name) %>%
   unlist() %>%
   unname()
+
+
+
+all_data %>%
+  group_by(screen_name) %>%
+  summarise(n = n()) %>%
+  arrange(n) %>%
+  filter(n >= 10)
 
 # scan_twitter(covid, path = '../../stat_kurzus/twitter/data/')
 # scan_twitter(boardgames, path = '../../stat_kurzus/twitter/data/')
@@ -90,7 +98,9 @@ scan_twitter(boardgames)
 scan_twitter(dicetower)
 scan_twitter(movies)
 
-for (i in seq(0:7)) {
+top_users_rear <- seq(floor(length(top_users) / 10), floor(length(top_users) / 10) - 10)
+
+for (i in top_users_rear) {
   assign(paste0("top_users_", i, "0"), top_users[seq(i * 10, i * 10 + 9)])
   scan_twitter(tokens = get(paste0("top_users_", i, "0")), name = paste0("top_users_", i, "0"))
 }
@@ -131,4 +141,4 @@ ggplot(project.plus, aes(PC1, PC2, color = cluster)) +
 
 
 ## personal functions
-    grouping <- c("screen_name", names(combined_results[, 101:185]))
+grouping <- c("screen_name", names(combined_results[, 101:185]))
