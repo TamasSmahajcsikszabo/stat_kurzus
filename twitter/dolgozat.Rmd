@@ -1,0 +1,14 @@
+---
+title: "Közösségi média tartalomelemzése - klaszterelemzés"
+author: "Smahajcsik-Szabó Tamás"
+csl: apa7.csl
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(caret)
+liwc_results <- read_csv("liwc_results.csv")
+
+```
