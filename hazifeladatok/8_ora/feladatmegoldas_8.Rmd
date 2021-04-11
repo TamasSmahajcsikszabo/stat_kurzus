@@ -1,0 +1,158 @@
+---
+title: "Házi feladatok megoldása 8."
+subtitle: "k-középpontú klaszteranalízis (KKA) ROPstatban és SPSS-ben"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+#suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+# suppressMessages(labels <- read_csv('../../data/labels.csv'))
+
+cluster_plot <- function(data, type="stand", cluster="k", title="", xlab="Változók", ylab="Standardizált átlagok",caption= "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói", ...) {
+  ggplot() + 
+    geom_col(data = data[data$type == type, ], aes(var, as.numeric(replace(val)), group=Klaszter, fill=as.numeric(replace(val)) > 0),color = "black", show.legend = FALSE) +
+    facet_grid(~k~Klaszter, scales="free") +
+    geom_text(data = data[data$type == type, ], aes(0.85,2, label = HC)) +
+    theme_light() +
+    scale_fill_manual(values = c("grey70", "white")) +
+    labs(
+      title = title,
+      x = xlab,
+      y = ylab,
+      caption = caption
+  ) +
+    theme(axis.text.x = element_text(angle = 45, hjust=1))
+  
+}
+replace <- function(x) {
+  gsub(",", ".", x)
+}
+
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+qc <- read_delim("ROPStat/qc.csv", delim=";") %>% arrange(k)
+cluster_membership <- read_delim("ROPStat/kclustresults.csv", delim=";")
+cluster_results <- read_delim("ROPStat/kka.csv", delim=";")
+
+patterns <- cluster_results %>%
+  pivot_longer(2:4, names_to = "var", values_to = "val") %>%
+  mutate(Klaszter = factor(Klaszter, levels = paste0("KL", seq(1,10))))
+
+
+```
+
+### 1. Végezz KKA-t ROPstatban a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 6 és 10 között és mentsd el minden megoldás klaszterváltozóját! Melyik megoldás tűnik a legjobbnak szerinted? Miért?
+
+
+A ROPStatban elvégzett k-központú elemzések adekvációs mutatóit az alábbi táblázatban foglaltam össze. Kedvező pontbiszeriális együtthatója (0.37), magas módosított Xien-Beni mutatója (0.534 értékkel a többi klaszterstruktúra felett áll), a legjobb Silhouette indexe (0.61), és ugyancsak a legjobb GDI24 mutatója (0.484) a **k=7** struktúrát fogadtam el a legkedvezőbb megoldásnak. Ugyan nem a legjobb a megmagyarázott variancia ebben a megoldásban (76.83%), a többi mutatóban mutatott jobb teljesítménye ezt ellensúlyozza.
+
+
+```{r echo=FALSE}
+knitr::kable(qc, "simple")
+```
+
+### 2. Készíts ábrát az előző feladat legjobb megoldásának centroidjai alapján a sima és a standardizált átlagokra! Hogyan tudnád értelmezni a klasztereket?
+
+Tovább elemezve a kapott struktúrákat, a standardizált átlagok és homogenitási együtthatók alapján az alábbi ábrát képeztem klaszterstruktúránként. A k=6  megoldáshoz képest jól látható, hogy a k=7 struktúrában adódik egy KL7 klaszter, mely mintázatában új struktúrát tár fel kedvező homogenitással (HC=0.61), miközben csökken a KL6 klaszter heterogenitása (1.44-ről 1.03-ra). Ehhez képest a k >= 8 megoldások esetén a KL7 struktúra továbbra is megmarad, minden esetben az utolsó klaszterként (KL8, KL9 és KL10 formájában, azonos homogenitással), ebből arra következtetek, hogy a 8, 9 és 10 klaszteres megoldások a minta egyéb klasztereit tagolják tovább.
+
+k=8 esetén a korábban már azonosított KL4 alakult tovább, homogenitása kedvezőbb lett (0.32), képződött egy KL6 klaszter szintén jó homogenitással. A KL4 (k=8) egy átlagosan boldog és átlagosan telesítő, viszonylag alacsony szinten magányos klaszter, noha homogén, nem látok benne különösebben szakmailag érdekes csoportot.
+
+k=9 esetén pedig további gondot jelent, hogy a korábban is már hasonló mintázatot mutató klaszterek (pl. k=7-nél a KL3 és KL6) mellett megjelent egy KL5 klaszter, mely a redundancia irányába mutat: A rosszul teljesítő, szomorú és magányos személyeket sürítő KL3 mellett adódott már 3 további klaszter is hasonló mintázattal (KL5, KL8 és KL9 is), melyek a változókban mutatott áltagos értékeik arányában mutatnak változatosságot, de döntően ugyanazt a jelenségkört mutatják be.
+
+A 10 klaszteres megoldás eseténe hasonló redundanciát látok a KL3, KL5, KL9 és KL10 miatt, noha szakmailag érdekesnek tartom a KL6 homogén klasztert (jól teljesítő, magányos, átlagosan boldog - talán introvertált) klasztert. 
+
+```{r echo=FALSE, fig.height=10, fig.width=14}
+cluster_plot(patterns)
+```
+
+
+
+
+### 3. Ennél a megoldásnál hány százalékponttal nő meg EESS% értéke a relokáció hatására a HKA-hoz képest?
+
+7 klaszteres megoldás esetén Ward-módszerével végzett hierarchikus agglomeratív klaszterelemzésnél ugyanaezen a mintán az EESS% = 76.83%, tehát a két megoldás ugyanannyi varianciát magyaráz. 
+
+### 4. Végezz KKA-t SPSS-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással a ROPstatban kapott legjobbnak tűnő klaszterszámra! EESS% értéke mekkora? Készíts ábrát a kapott megoldás centroidjairól! Hogyan tudnád értelmezni a klasztereket?
+
+A hét klaszteres megoldásra az SPSS-ben 25-szörös iteráció mellett az EESS% 81.51%. 
+
+```{r echo=FALSE}
+anova <- read_delim("SPSS/anova.csv", delim=";")
+
+knitr::kable(anova, "simple")
+
+```
+```{r echo=FALSE}
+anova_total <- read_delim("SPSS/anova_total.csv", delim=";")
+
+knitr::kable(anova_total, "simple")
+
+```
+
+A klasztercentroidokat az alábbi táblázat mutatja be.
+
+```{r echo=FALSE}
+centroids <- read_delim("SPSS/centroids.csv", delim=";") %>% 
+  pivot_longer(2:8, names_to = "KL",values_to = "val")
+
+ ggplot(centroids) + 
+    geom_col(aes(var, val, group=KL), color = "black", fill = "white")+
+    facet_wrap(~KL) +
+    theme_light() +
+    scale_fill_manual(values = c("grey70", "white")) +
+    labs(
+      title = "Klasztercentroidok k=7 struktúra esetén, nem standardizált átlagokkal",
+      x = "Változók",
+      y = "Átlagok"
+  ) +
+    theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+A struktúra szerint adott több olyan klaszter, ahol a teljesítmény magasabb, miközben a magányosság alacsonyabb, a boldogság pedig emelkedett (KL2, KL4, KL6). Adott két klaszter (KL1 és KL7), ahol a magányosság szintje is emelkedett, noha eme reziliens csoportokban megtartott a teljesítmény. KL3 és a hozzá hasonlóbb mintázatot mutató KL5 esetében a boldogság szinjte alacsopnyabb, miközben a magányosság és a teljesítmény emelkedett.
+
+### 5. Mentsd el az előző feladat klaszterváltozóját, másold be ROPstatba és ott a Validálás modul segítségével számítsd ki a főbb QC mutatókat! Vesd össze ezeket a ROPstat hasonló elemzésében kapott értékekkel (lásd 1. feladat)!
+
+A Validálás modul segítségével kapott eredményeket az alábbi táblázat összegzi 7 klaszteres struktúrára.
+
+```{r echo=FALSE}
+
+qc_compare <- read_delim("SPSS/qc_compare.csv", delim=";")
+
+knitr::kable(qc_compare, "simple")
+
+```
+
+Az SPSS által használt KKA algoritmus (esetünkben a McQueen-féle) gyengébb teljesítménye valószínűsíthető volt a fentebbi feladat megoldásában is, a klaszterstruktúrákat tekintve.
+
