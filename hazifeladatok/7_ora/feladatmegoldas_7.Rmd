@@ -16,7 +16,7 @@ Smahajcsik-Szabó Tamás, M9IJYM
 ```{r echo=FALSE}
 # importing C++ code, R libraries and data
 options(warn=-1)
-setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
 knitr::opts_chunk$set(warning=FALSE, message=FALSE)
 #suppressMessages(source("../../src/functions.R"))
 #suppressMessages(source("../../src/mad.R"))
@@ -54,7 +54,7 @@ knitr::kable(tail(result1[,names(result1) %in% c("k", "EESS", "d")], 15), "simpl
 Az eredményekről az alábbi könyökábra is tájékoztat. K=10 megoldás esetén az EESS % értékének csökkenése elsőként éri el a 4%-ot, de ez értéke egészen k=2-ig nem ér el 5-6%-nál nagyobb csökkenést.
 Végül a *d* (itt a különbözetet jelöltem így) értéke 55% k = 3 után.
 
-Noha az *icile* diagram áttekinthetősége csökkent a nagy változószám mellett, a dendogram már inkább volt a segítségemre. 
+Noha az *icile* diagram áttekinthetősége csökkent a nagy esetszám mellett, a dendogram már inkább volt a segítségemre. 
 A nagyobb klaszterösszevonásokra viszonylag az iterációk végén került sor, a dendogram nem mutatja az elvárt összevonási mintázatot, feltételezem, a minimális távolság módszere szuboptimális az adott adatokon.
 
 
@@ -82,7 +82,6 @@ ggplot() +
 
 ### 2. Végezz HKA-t SPSS-ben a Ward módszerrel, SED távolsággal a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással! Hány klaszteres megoldás tűnik a legjobbnak az Agglomeration Schedule Coefficients oszlopának grafikus ábrázolása alapján? És a jégcsapdiagram alapján? És a dendrogram alapján?
 
-Hasonló grafikát képeztem Ward módszerének kiértékelésére, mint fentebb.
 Elsőként az SPSS *Agglomeration Schedule* táblázatának utolsó sorait közlöm.
 
 ```{r echo = FALSE}
@@ -93,6 +92,7 @@ knitr::kable(tail(result2[,names(result2) %in% c("k", "EESS", "d")], 15), "simpl
 
 *k=klaszterszám, EESS%, d=EESS% csökkenés*
 
+Hasonló grafikát képeztem Ward módszerének kiértékelésére, mint fentebb.
 
 ```{r echo = FALSE, fig.width=6, fig.height=5}
 crit <- 0.02
@@ -112,6 +112,8 @@ ggplot() +
     y = "EESS %"
   )
 ```
+
+Az eredmények alapján egy stabil két klaszteres megoldás rajzolódik ki, de a stabilitás lentebbi tesztelése nyomán k=7, illetve k= 8 is megfelelő lehet.
 
 ### 3. Mekkora az előző feladat 5-klaszteres megoldásában EESS% értéke? Vesd össze ezt a ROPstat hasonló elemzésében kapott értékkel (6. óra/7. feladat)!
 
@@ -184,7 +186,7 @@ knitr::kable(solution2, "simple")
 Az alábbi ábrán a k=3 és k=15 közti klaszterstruktúra stabilitását mutatom be.
 Az első klaszter teljesen stabil, apró vonalka jelzi, hogy 0 a feloszlások száma.
 A többi esetben 30 és 60 között ingadozik a feloszlások száma 100 futásból, a *k* értéke mentén váltazkozva. 
-Ennek alapján a minimális távolság egy algoritmustól függő megoldást hoz, amely arra tereli a figyelmet, hogy más módszer lenne megfelelő valós struktúrák kinyerésére a kérdéses három változó esetén.
+Ennek alapján a minimális távolság arra tereli a figyelmet, hogy más módszer lenne megfelelő valós struktúrák kinyerésére a kérdéses három változó esetén.
 
 ```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=8, warning=FALSE}
 solution15  <- readRDS("cboot_single15.RDS") 
@@ -221,6 +223,7 @@ ggplot(segment(ddata)) +
   ) +
   theme_light()
 ```
+
 Alább táblázatosan összegzem a stabilitást Ward módszerével.
 
 
@@ -230,7 +233,7 @@ ward_stability <- readRDS("ward_stability.RDS")
 summary <- ward_stability %>%
   mutate(check = stabilitás >= criteria) %>%
   group_by(k = k_total) %>%
-  summarise(`stabil klaszterek száma` = round(sum(check)/k, 3),
+  summarise(`stabil klaszterek aránya` = round(sum(check)/k, 3),
               `átlagos klaszterstabilitás` = round(mean(stabilitás),3),
               `minimum klaszterstabilits` = round(min(stabilitás),3),
               `maximum klaszterstabilitás` = round(max(stabilitás),3)) %>%
@@ -238,7 +241,7 @@ summary <- ward_stability %>%
 knitr::kable(summary, 'simple')
 ```
 
-Ha grafikusan tekintjük a stabilitást (lásd az alábbi diagrammot), noha a feloszlások száma magasabb is mint 60 nem egy esetben, több olyan klaszterstruktúra is képződött, ahol nem egy klaszter stabilitása magasabb volt (<30).
+Ha grafikusan tekintjük a stabilitást (lásd az alábbi diagrammot), noha a feloszlások száma magasabb is mint 60 nem egy esetben (a minimális távolsággal összevetésben), ugyanakkor több olyan klaszterstruktúra is képződött, ahol nem egy klaszter stabilitása magasabb volt (a feloszlások száma <30).
 Mindez, illetve a dendogram alapján a Ward egy megfelelőbb módszernek tűnik a klaszterstruktúra feltárására az adott adatokon.
 
 ```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=8, warning=FALSE}
