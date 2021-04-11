@@ -5,9 +5,10 @@ library(caret)
 library(tibble)
 library(tidyverse)
 library(ggrepel)
-library(concaveman)
+# library(concaveman)
 library(ggforce)
-# sourceCpp("../../src/functions.cpp")
+library(forcats)
+sourceCpp("src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -207,6 +208,7 @@ ASED_df <- function(df) {
   results
 }
 
+
 find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius_vector = NA, summarize = FALSE, estimate_density = FALSE, cor_threshold = 0.8, preselection = FALSE) {
   ran <- range(dist_matrix)
   dist_var <- var(as.matrix(dist_matrix)[lower.tri(as.matrix(dist_matrix))], na.rm = FALSE)
@@ -308,16 +310,13 @@ find_neighbours <- function(dist_matrix, n_radius = 12, max_radius = 0.5, radius
   result
 }
 
-estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = seq(0.005, 0.5, by = 0.005)) {
+estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = seq(0.005, 0.5, by = 0.005), binned_outcome = FALSE, scaling = FALSE) {
+  if (scaling) {
+    data <- scale(data)
+  }
   distance_matrix <- ASED_df(data)
   neighbour_matrix <- find_neighbours(distance_matrix, radius_vector = radius_vector)
   neighbour_summary <- find_neighbours(distance_matrix, radius_vector = radius_vector, summarize = TRUE)
-
-  if (is.na(n_bins)) {
-    n_bins <- range(data)[2]
-  }
-
-  bins <- tibble(bins = seq(n_bins))
 
   results <- bind_cols(as_tibble(data), neighbour_matrix[, names(neighbour_matrix) %in% neighbour_summary$radius])
   start_index <- ncol(data) + 1
@@ -328,23 +327,41 @@ estimate_binned_density <- function(data, radius, n_bins = 10, radius_vector = s
     mutate(density = neighbours / avg_neighbours) %>%
     dplyr::select("radius", c(colnames(data), "density"))
 
-  suppressMessages(binned_density <- results %>%
-    group_by_at(c("radius", colnames(data))) %>%
-    summarise(density = mean(density, na.rm = TRUE)))
-  binned_density[is.na(binned_density)] <- 0
-  binned_density
+  if (binned_outcome) {
+    if (is.na(n_bins)) {
+      n_bins <- floor(range(data)[2] / 2)
+    }
+    for (n in colnames(data)) {
+      results[n] <- as.numeric(cut(results[n][[1]], breaks = n_bins, labels = seq(n_bins)))
+    }
+    suppressMessages(binned_density <- results %>%
+      group_by_at(c("radius", colnames(data))) %>%
+      summarise(density = mean(density, na.rm = TRUE)))
+    binned_density[is.na(binned_density)] <- 0
+    binned_density <- binned_density %>%
+      ungroup()
+    binned_density
+  }
 }
 # binned_data <- estimate_binned_density(data)
 # binned_density_data <- binned_data
 
 binned_density_plot <- function(binned_density_data, title = "", xlab = "", ylab = "", caption = "") {
+  if (xlab == "") {
+    xlab <- names(binned_density_data)[2]
+  }
+  if (ylab == "") {
+    ylab <- names(binned_density_data)[3]
+  }
   colnames(binned_density_data) <- c("radius", "x", "y", "density")
-  x_breaks <- seq(max(binned_density_data$x))
-  y_breaks <- seq(max(binned_density_data$y))
+  x_breaks <- seq(as.numeric(max(binned_density_data$x)))
+  y_breaks <- seq(as.numeric(max(binned_density_data$y)))
+
   ggplot(data = binned_density_data) +
     geom_tile(aes(x = x, y = y, fill = density), color = "grey50") +
     scale_fill_gradient(low = "grey90", high = "coral") +
-    geom_text(aes(x, y, label = round(density, 3))) +
+    scale_color_gradient(low = "grey40", high = "coral4") +
+    geom_text(aes(x, y, color = density, label = round(density, 3)), show.legend = FALSE) +
     facet_wrap(~radius, ncol = 2) +
     labs(
       title = title,
@@ -484,15 +501,18 @@ dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense
 global_colors <- paste0("grey", seq(60, 20, -10))
 
 
-exploration_plot <- function(dataset, id = "PIK", span = 10, pol = 4, autotune = TRUE, multiple_lines = FALSE) {
+exploration_plot <- function(dataset, id = "", span = 10, pol = 4, autotune = TRUE, multiple_lines = FALSE, columns="") {
   plot_data <- dataset %>%
-    pivot_longer(1:6, names_to = "var", values_to = "values") %>%
+    pivot_longer(1:ncol(dataset), names_to = "var", values_to = "values") %>%
     arrange(var)
 
-  pool <- names(dataset)
-  pool1 <- pool[str_detect(pool, id)]
-  pool2 <- pool[!str_detect(pool, id)]
-  varnames <- tibble(expand.grid(pool1, pool2))
+  if (id != "") {
+    pool <- names(dataset)
+    pool1 <- pool[str_detect(pool, id)]
+    pool2 <- pool[!str_detect(pool, id)]
+    varnames <- tibble(expand.grid(pool1, pool2))
+  }
+
 
   plot_data <- tibble()
   for (i in 1:nrow(varnames)) {
@@ -886,4 +906,68 @@ k_means_eval <- function(dataset, k = 3:5, nstart = 100, iter.max = 100) {
     results <- bind_rows(results, internal_criteria)
   }
   results
+}
+
+evaluate_cors <- function(dataset, threshold = 0.7, ...) {
+  cormatrix <- cor(dataset)
+  mask <- data.frame(!cormatrix <= threshold)
+  rownames(mask) <- colnames(cormatrix)
+  colnames(mask) <- colnames(cormatrix)
+
+  correlations <- tibble()
+  for (i in 1:nrow(mask)) {
+    for (j in 1:ncol(mask)) {
+      if (!rownames(mask[i, ]) == colnames(mask)[j]) {
+        if (mask[i, j]) {
+          actual <- tibble(
+            x = rownames(mask[i, ]),
+            y = colnames(mask)[j]
+          )
+          correlations <- bind_rows(correlations, actual)
+        }
+      }
+    }
+  }
+
+  correlations <- correlations %>%
+    group_by(x, y) %>%
+    summarise(n = n())
+
+  correlations
+}
+
+replace <- function(x) {
+  gsub(",", ".", x)
+}
+
+onestepm <- function(x, k = 1.28) {
+  if (is.vector(x)) {
+    x <- x
+  } else {
+    x <- unname(unlist(x[, 1]))
+  }
+  MADN <- mad(x, na.rm = TRUE) / 0.6745
+  if (length(x) < 2 || MADN == 0) {
+    OSMest <- median(x, na.rm = TRUE)
+  } else {
+    M <- median(x, na.rm = TRUE)
+    outliers <- c()
+    cleaned_x <- c()
+    for (i in seq_along(x)) {
+      ins <- x[i]
+      if (!MADN == 0) {
+        if ((abs(ins - M) / MADN) > k) {
+          outliers[i] <- ins
+        } else {
+          cleaned_x[i] <- ins
+        }
+      }
+    }
+    L <- sum(outliers < M, na.rm = TRUE)
+    U <- sum(outliers > M, na.rm = TRUE)
+    n <- length(x)
+    B <- sum(cleaned_x, na.rm = TRUE)
+    OSMest <- (k * MADN * (U - L) + B) / (n - L - U)
+  }
+  OSMest
 }
