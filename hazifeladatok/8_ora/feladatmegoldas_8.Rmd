@@ -101,11 +101,11 @@ cluster_plot(patterns)
 
 ### 3. Ennél a megoldásnál hány százalékponttal nő meg EESS% értéke a relokáció hatására a HKA-hoz képest?
 
-7 klaszteres megoldás esetén Ward-módszerével végzett hierarchikus agglomeratív klaszterelemzésnél ugyanaezen a mintán az EESS% = 76.83%, tehát a két megoldás ugyanannyi varianciát magyaráz. 
+7 klaszteres megoldás esetén Ward-módszerével végzett hierarchikus agglomeratív klaszterelemzésnél ugyanezen a mintán az EESS% = 76.83%. Relokációval az EESS% 78.47%-ra javul, a növekedés közel 1.64%.
 
 ### 4. Végezz KKA-t SPSS-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással a ROPstatban kapott legjobbnak tűnő klaszterszámra! EESS% értéke mekkora? Készíts ábrát a kapott megoldás centroidjairól! Hogyan tudnád értelmezni a klasztereket?
 
-A hét klaszteres megoldásra az SPSS-ben 25-szörös iteráció mellett az EESS% 81.51%. 
+A hét klaszteres megoldásra az SPSS-ben 25-szörös iteráció mellett az EESS% 76.51%. 
 
 ```{r echo=FALSE}
 anova <- read_delim("SPSS/anova.csv", delim=";")
@@ -122,7 +122,7 @@ knitr::kable(anova_total, "simple")
 
 A klasztercentroidokat az alábbi táblázat mutatja be.
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.width=10, fig.height=10}
 centroids <- read_delim("SPSS/centroids.csv", delim=";") %>% 
   pivot_longer(2:8, names_to = "KL",values_to = "val")
 
@@ -132,7 +132,7 @@ centroids <- read_delim("SPSS/centroids.csv", delim=";") %>%
     theme_light() +
     scale_fill_manual(values = c("grey70", "white")) +
     labs(
-      title = "Klasztercentroidok k=7 struktúra esetén, nem standardizált átlagokkal",
+      title = "Klasztercentroidok k=7 struktúra esetén, standardizált átlagokkal",
       x = "Változók",
       y = "Átlagok"
   ) +
@@ -140,7 +140,7 @@ centroids <- read_delim("SPSS/centroids.csv", delim=";") %>%
 
 ```
 
-A struktúra szerint adott több olyan klaszter, ahol a teljesítmény magasabb, miközben a magányosság alacsonyabb, a boldogság pedig emelkedett (KL2, KL4, KL6). Adott két klaszter (KL1 és KL7), ahol a magányosság szintje is emelkedett, noha eme reziliens csoportokban megtartott a teljesítmény. KL3 és a hozzá hasonlóbb mintázatot mutató KL5 esetében a boldogság szinjte alacsopnyabb, miközben a magányosság és a teljesítmény emelkedett.
+A képződött klaszterstruktúra szerint adott egy magányos, de viszonylag közepesen boldog, enyén jól teljesítő csoport, a KL1. A KL2 azokat sűríti, akik mindenben a közép felé trendálnak, nem mutatva kiugróbb mintázatot. A KL3 és KL4 mintázata azonos, szélső értékeiben tér el: Ők a magányos, boldogtalan és kevésbé jól teljesítők. Hozzájuk közel áll, romlott teljesítményében még inkább alacsonyabb szintet elérve a KL5. A KL6 klaszter a kevésbé magányos, boldogabb és jobbak teljesítők csoportja. Szakmailag érdekes a KL7, ahol a magányosságban nem kiemelkedő, ámde rosszul teljesítő, boldogtalanok állnak.
 
 ### 5. Mentsd el az előző feladat klaszterváltozóját, másold be ROPstatba és ott a Validálás modul segítségével számítsd ki a főbb QC mutatókat! Vesd össze ezeket a ROPstat hasonló elemzésében kapott értékekkel (lásd 1. feladat)!
 
