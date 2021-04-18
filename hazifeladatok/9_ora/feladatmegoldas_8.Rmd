@@ -184,7 +184,7 @@ validation1 <- read_delim("validationkmeans.csv", delim=";")[,1:9]
 knitr::kable(validation1, "simple")
 ```
 
-**1.táblázat** Klaszterstruktúra validitás mérése ROPStattal
+**1.táblázat** Klaszterstruktúra validitás mérése ROPStattal, k-középpontú klaszterelemzéshez
 
 A magyarázott variancia (EESS%) növekszik **k** értékének emelkedésével, de nem láthatunk kiugró javulást. 
 A Pontbiszeriális együttható értéke csökken, a klaszterszám emelkedésével. Optimális szintjént k=7-nél éri el.
@@ -199,7 +199,7 @@ Mindezek alapján a k=7 vagy k=8 struktúra tűnik megfelelőnek.
 \newpage
 ## 4. Végezz k-medoid elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
 
-```{r echo = FALSE}
+```{r echo = FALSE, fig.width=12, fig.height=10}
 medoids <- tibble()
 memberships <- tibble()
 for (k in 7:9){
@@ -211,14 +211,93 @@ for (k in 7:9){
     medoid$k  <- k
     medoid$type  <- 'stand'
     medoids <- bind_rows(medoids, medoid)
-    membership <- tibble(c = data.frame(medoid_fit$clustering), k = k)
+    membership <- tibble(data.frame(c = medoid_fit$clustering), k = k)
     memberships <- bind_rows(memberships, membership)
 }
 medoids <- medoids %>%
     pivot_longer(1:3, names_to = "var", values_to = "val")
 cluster_plot(medoids)
+write_csv(memberships, "medoidmemberships.csv")
 ```
 
 \newpage
 ## 5. Mentsd el a 4. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
 
+```{r echo = FALSE}
+validation2 <- read_delim("validationkmedoids.csv", delim=";")
+validation2$k  <- 7:9 
+
+knitr::kable(validation2, "simple")
+```
+
+**2.táblázat** Klaszterstruktúra validitás mérése ROPStattal, k-medoid klaszterelemzéshez
+
+A magyarázott variancia (EESS%) növekszik **k** értékének emelkedésével, de nem láthatunk kiugró javulást. 
+A Pontbiszeriális mutatók értéke kedvezőtlen, k=7 esetén még az elfogadható 0.3 szint alatt, de azt nagyon megközelítő értéket látunk.
+A módosított Xien Beni mutatók nem mutatnak jó illeszkedést.
+A Silhouette index a k=7 esetén jelzi a legjobb illeszkedést 0.583 értékkel.
+A CLdelta k=8 esetén a legjobb a három struktúra közül, elfogadható szinten (0.823), mögötte a k=7 struktúra áll. 
+A HCÁtlag természetszerűleg csökken  **k** emelkedésével
+A GDI24 index mindegyik megoldás esetén kedvezőtlen struktúrát jelez. 
+Felvethető a medoidok érvényességének alacsony szintje az adott adatokon.
+
+Mindezek alapján a k=7 struktúra tűnik a legjobbnak a háromból.
+
+```{r echo=FALSE, fig.width=15, fig.height=10}
+#varnames <- expand.grid(names(medoids)[1:3], names(medoids)[1:3]) %>% filter(Var1 != Var2)
+#medoid_plot_data <- medoids %>%
+#    filter(k == 7) %>%
+#    mutate(c = as.numeric(str_sub(Klaszter, 3,3)))
+#Sevenmembers <- memberships %>% filter(k == 7)
+#plot_data <- tibble(data.frame(dataset))
+#plot_data_prep <- bind_cols(plot_data, Sevenmembers)
+
+#plot_data <- tibble()
+#for (i in 1:nrow(varnames)) {
+#    actual_pair <- as.character(unname(unlist(varnames[i, ])))
+#    actual_df <- tibble(
+#      var1 = rep(actual_pair[1], nrow(plot_data_prep)),
+#      var2 = rep(actual_pair[2], nrow(plot_data_prep)),
+#      x = unname(unlist(plot_data_prep[, actual_pair[1]])),
+#      y = unname(unlist(plot_data_prep[, actual_pair[2]])),
+#      KL = plot_data_prep$c
+#    )
+#    colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+#    plot_data <- bind_rows(plot_data, actual_df)
+#}
+#plot_data_medoid <- tibble()
+#for (i in 1:nrow(varnames)) {
+#    actual_pair <- as.character(unname(unlist(varnames[i, ])))
+#    actual_df <- tibble(
+#                        var1 = rep(actual_pair[1], nrow(medoid_plot_data)),
+#      var2 = rep(actual_pair[2], nrow(medoid_plot_data)),
+#      x = unname(unlist(medoid_plot_data[, actual_pair[1]])),
+#      y = unname(unlist(medoid_plot_data[, actual_pair[2]])),
+#      KL =medoid_plot_data$c
+#    )
+#    colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+#    plot_data_medoid <- bind_rows(plot_data_medoid, actual_df)
+#}
+
+#plot_data <- plot_data %>%
+#    mutate(KL = as.factor(KL))
+#plot_data_medoid <- plot_data_medoid %>%
+#    mutate(KL = as.factor(KL))
+#saveRDS(plot_data, "plot_data.RDS")
+#saveRDS(plot_data_medoid, "plot_data.RDS")
+plot_data <- readRDS("plot_data.RDS")
+plot_data_medoid <- readRDS("plot_data_medoid.RDS")
+
+ggplot()+
+    geom_point(data=plot_data, aes(x,y, color = KL), size = 4) +
+    geom_point(data=plot_data_medoid, aes(x,y), color="black", size = 6, shape = 18) +
+    geom_point(data=plot_data_medoid, aes(x,y, color=KL), size = 5, shape = 18) +
+    facet_wrap(~var1~var2, scales="free") +
+    theme_light() +
+    scale_color_manual(values=c("#CB960E", "#D6A904", "#F9D47E", "987E53", "#92B7A8", "#184867", "black")) +
+    theme(legend.position = "bottom") +
+    labs(x="", y="")
+
+
+
+```
