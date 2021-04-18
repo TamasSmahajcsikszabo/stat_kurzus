@@ -1,0 +1,180 @@
+---
+title: "Házi feladatok megoldása 9."
+subtitle: "k-középpontú klaszteranalízis R-ben"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+# suppressMessages(labels <- read_csv('../../data/labels.csv'))
+
+```
+
+## 1. Végezz k-közép elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
+
+A k-közép elemzéseket 5 kezdeti centroid struktúrával, maximális 20 iterációval végeztem (MacQueen-féle algoritmussal).
+Az eredményekről az alábbi áttekintő ábra tájékoztat.
+A képződött klaszterek standard átlagait, és a homogenitási együtthatókat is feltüntettem.
+
+```{r echo=FALSE, fig.height=10, fig.width=12}
+dataset <- dataset[c('PTelj', 'PBoldog', 'PMagány')]
+dataset <- scale(dataset)
+
+set.seed(12813)
+opt_SH <- Optimal_Clusters_KMeans(dataset, 10, criterion = "silhouette", "random", 5, plot_clusters=FALSE) 
+
+set.seed(12813)
+opt_EESS <- Optimal_Clusters_KMeans(dataset, 10, criterion = "variance_explained", "random", 5, plot_clusters=FALSE) 
+
+
+set.seed(12813)
+opt_dist <- Optimal_Clusters_KMeans(dataset, 10, criterion = "distortion_fK", plot_clusters=FALSE) 
+
+set.seed(12813)
+opt_gmm <- Optimal_Clusters_GMM(dataset, max_clusters=10, criterion="BIC",
+dist_mode="eucl_dist", seed_mode="random_subset",
+km_iter=15, em_iter=10, var_floor=1e-10, plot_data=FALSE)
+
+p1 <- tibble(x = seq(1, length(opt_EESS)),
+             y=opt_EESS) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size=3) +
+        labs(
+             title = "EESS %",
+             x = "k",
+             y = "EESS%"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_EESS)))
+
+p2 <- tibble(x = seq(1, length(opt_SH)),
+             y=opt_SH) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        labs(
+             title = "Silhouette együttható",
+             x = "k",
+             y = "Silhouette"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_SH)))
+r1 <- ggarrange(p1, p2, nrow=1)
+
+p3 <- tibble(x = seq(1, length(opt_dist)),
+             y=opt_dist) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        geom_segment(aes(x=-Inf, xend=Inf, y=0.85, yend=0.85), size=0.25, color="#184867", linetype="dashed") +
+        labs(
+             title = "f(K) mutató",
+             x = "k",
+             y = "f(K)"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_dist)))
+
+p4 <- tibble(x = seq(1, length(opt_gmm)),
+             y=opt_gmm) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        labs(
+             title = "GMM",
+             x = "k",
+             y = "BIC"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_gmm)))
+
+r2 <- ggarrange(p3, p4, nrow=1)
+
+helper_plots <- ggarrange(r1, r2, nrow=2)
+
+centers <- tibble()
+clustersing_vectors <- tibble()
+
+for (k in c(7,8,9)){
+    clustering <- kmeans(dataset, center = k, iter.max = 20, nstart = 5, "MacQueen")
+    centers_i <- tibble(data.frame(clustering$centers))
+    centers_i$Klaszter <- paste0("KL", 1:k)
+    centers_i$k <- k
+    centers_i$type <- 'stand'
+    centers_i$HC <- hc(dataset, membership = clustering$cluster, max_k = k) 
+    centers <- bind_rows(centers, centers_i)
+    membership <- tibble(data.frame(c = clustering$cluster))
+    membership$k  <- k
+    clustersing_vectors <- bind_rows(clustersing_vectors, membership)
+}
+
+```
+
+```{r echo=FALSE, fig.width = 12, fig.height=9}
+
+centers_plot <- centers %>%
+    pivot_longer(1:3, names_to = "var", values_to="val")
+
+cluster_plot(centers_plot, caption="Felbontás a klaszterek (KL)  és k alapján")
+
+```
+**1.ábra** A klaszterstruktúra áttekintése
+
+## 2. Hány klaszteres megoldás tűnik a legjobbnak az 1. feladat változói esetében a 6.4.1. alpontban leírt R-beli módszerek alapján (vö. 6.6-6.10. ábrák)?
+
+A fenti ábra kedvezőtlenebb homogenitási indexeivel összhangban, a k=7 és k=9 közötti megoldás nem optimális a segítő ábrák alapján sem. 
+
+```{r echo=FALSE, fig.width = 12, fig.height=10}
+helper_plots
+
+```
+**2. ábra:** Segítő ábrák
+
+Az EESS% könyökábrája (bal felül), illetve a Silhouette együttható (jobb felül) egy k=2 megoldás fölényét erősíti a k = 7, 8 illetve 9 megoldásokkal szemben.
+Az *f(K)* mutató (bal alul) a k=2 megoldást emeli ki, k=2-nél ereszkedik f(k) értéke a 0.85 küszöb alá.
+A k=7 és k=9 megoldások közül a k=9 esetén kedvezőbb kissé a mutató, de mindegyikre nézve suboptimális a jelzés.
+GMM függvénnyel tesztelve az adatokat a BIC értéke egyaránt alacsony k=7 és k=9 között, de egyrészt nem optimális a BIC ezen struktúrák mellett, másrészt minden más segítő ábra a k=7, 8 vagy 9 megoldások nem kielégítő voltát erősíti.
+
+
+## 3. Mentsd el az 1. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
+## 4. Végezz k-medoid elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
+
+## 5. Mentsd el a 4. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
