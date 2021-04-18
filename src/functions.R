@@ -360,7 +360,7 @@ binned_density_plot <- function(binned_density_data, title = "", xlab = "", ylab
   ggplot(data = binned_density_data) +
     geom_tile(aes(x = x, y = y, fill = density), color = "grey50") +
     scale_fill_gradient(low = "grey90", high = "coral") +
-    scale_color_gradient(low = "grey40", high = "coral4") +
+    scale_color_gradient(low = "grey30", high = "black") +
     geom_text(aes(x, y, color = density, label = round(density, 3)), show.legend = FALSE) +
     facet_wrap(~radius, ncol = 2) +
     labs(
@@ -374,8 +374,6 @@ binned_density_plot <- function(binned_density_data, title = "", xlab = "", ylab
     theme_light() +
     theme(legend.position = "bottom")
 }
-
-# binned_density_plot(binned_density_data, title = "Diener2 es Diener6 surusodespontjai 2 radius ertek menten", xlab = "Diener2", ylab = "Diener6", caption = "Atlag surusodes ertekek")
 
 binned_density_frequency <- function(binned_density_data) {
   binned_density_data %>%
@@ -501,7 +499,7 @@ dense_point_plot <- function(data, xlab = "Diener2", ylab = "Diener6", max_dense
 global_colors <- paste0("grey", seq(60, 20, -10))
 
 
-exploration_plot <- function(dataset, id = "", span = 10, pol = 4, autotune = TRUE, multiple_lines = FALSE, columns="") {
+exploration_plot <- function(dataset, id = "", span = 10, pol = 4, autotune = TRUE, multiple_lines = FALSE, columns = "") {
   plot_data <- dataset %>%
     pivot_longer(1:ncol(dataset), names_to = "var", values_to = "values") %>%
     arrange(var)
@@ -511,6 +509,11 @@ exploration_plot <- function(dataset, id = "", span = 10, pol = 4, autotune = TR
     pool1 <- pool[str_detect(pool, id)]
     pool2 <- pool[!str_detect(pool, id)]
     varnames <- tibble(expand.grid(pool1, pool2))
+  }
+
+  if (columns != "") {
+    varnames <- tibble(expand.grid(columns, columns)) %>%
+      filter(Var1 != Var2)
   }
 
 
@@ -970,4 +973,44 @@ onestepm <- function(x, k = 1.28) {
     OSMest <- (k * MADN * (U - L) + B) / (n - L - U)
   }
   OSMest
+}
+
+explore_data <- function(dataset, p = 20, bins = 50, scaling = TRUE, cut_p = 0.10, ...) {
+  results <- tibble()
+  # check for variance
+  if (scaling) {
+    dataset <- as.data.frame(scale(dataset))
+  }
+
+  top_var <- dataset %>%
+    pivot_longer(1:ncol(dataset), names_to = "vars", values_to = "vals") %>%
+    group_by(vars) %>%
+    summarise(d = var(vals, na.rm = TRUE)) %>%
+    top_n(p, d)
+
+  results <- top_var
+
+  # check for distribution
+  mode_dist_crit <- floor(bins * 0.15)
+  for (varname in top_var$vars) {
+    binned <- cut(dataset[varname][[1]], breaks = bins, labels = seq(bins))
+    binned <- tibble(x = binned) %>%
+      group_by(x) %>%
+      summarise(
+        n = n(),
+        p = n / nrow(dataset[varname])
+      ) %>%
+      filter(p >= cut_p)
+
+    mode_dist <- as.numeric(binned$x)
+    checks <- c()
+    for (i in seq(2, length(mode_dist))) {
+      checks <- c(checks, abs(mode_dist[i - 1] - mode_dist[i]) >= mode_dist_crit)
+    }
+    if (sum(checks, na.rm = TRUE) > 0) {
+      result <- tibble(vars = varname, multimodal = sum(checks))
+      results <- results %>% left_join(result)
+    }
+  }
+  results
 }
