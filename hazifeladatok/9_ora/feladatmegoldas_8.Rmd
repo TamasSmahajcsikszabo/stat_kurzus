@@ -74,9 +74,9 @@ p1 <- tibble(x = seq(1, length(opt_EESS)),
         geom_point(aes(x,y), color = "#D6A904", size=3) + 
         geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size=3) +
         labs(
-             title = "EESS %",
+             title = "Meg nem magyarázott varianca",
              x = "k",
-             y = "EESS%"
+             y = "%"
         ) +
         scale_x_continuous(breaks = seq(1, length(opt_EESS)))
 
@@ -132,6 +132,7 @@ centers <- tibble()
 clustersing_vectors <- tibble()
 
 for (k in c(7,8,9)){
+    set.seed(23432242)
     clustering <- kmeans(dataset, center = k, iter.max = 20, nstart = 5, "MacQueen")
     centers_i <- tibble(data.frame(clustering$centers))
     centers_i$Klaszter <- paste0("KL", 1:k)
@@ -143,6 +144,13 @@ for (k in c(7,8,9)){
     membership$k  <- k
     clustersing_vectors <- bind_rows(clustersing_vectors, membership)
 }
+
+memberships <- as.data.frame(clustersing_vectors)
+saveRDS(memberships, "memberships.RDS")
+write_csv(memberships, "memberships.csv")
+
+
+memberships <- tibble(k7, k8, k9)
 
 ```
 
@@ -166,7 +174,7 @@ helper_plots
 ```
 **2. ábra:** Segítő ábrák
 
-Az EESS% könyökábrája (bal felül), illetve a Silhouette együttható (jobb felül) egy k=2 megoldás fölényét erősíti a k = 7, 8 illetve 9 megoldásokkal szemben.
+A meg nem magyarázott varianca könyökábrája (bal felül), illetve a Silhouette együttható (jobb felül) egy k=2 megoldás fölényét erősíti a k = 7, 8 illetve 9 megoldásokkal szemben.
 Az *f(K)* mutató (bal alul) a k=2 megoldást emeli ki, k=2-nél ereszkedik f(k) értéke a 0.85 küszöb alá.
 A k=7 és k=9 megoldások közül a k=9 esetén kedvezőbb kissé a mutató, de mindegyikre nézve suboptimális a jelzés.
 GMM függvénnyel tesztelve az adatokat a BIC értéke egyaránt alacsony k=7 és k=9 között, de egyrészt nem optimális a BIC ezen struktúrák mellett, másrészt minden más segítő ábra a k=7, 8 vagy 9 megoldások nem kielégítő voltát erősíti.
