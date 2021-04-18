@@ -36,6 +36,7 @@ suppressMessages(library(ggdendro))
 suppressMessages(library(stats))
 suppressMessages(library(ClusterR))
 suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
 suppressMessages(dataset <- read_csv("../../data/data.csv"))
 # suppressMessages(labels <- read_csv('../../data/labels.csv'))
 
@@ -144,14 +145,6 @@ for (k in c(7,8,9)){
     membership$k  <- k
     clustersing_vectors <- bind_rows(clustersing_vectors, membership)
 }
-
-memberships <- as.data.frame(clustersing_vectors)
-saveRDS(memberships, "memberships.RDS")
-write_csv(memberships, "memberships.csv")
-
-
-memberships <- tibble(k7, k8, k9)
-
 ```
 
 ```{r echo=FALSE, fig.width = 12, fig.height=9}
@@ -164,6 +157,7 @@ cluster_plot(centers_plot, caption="Felbontás a klaszterek (KL)  és k alapján
 ```
 **1.ábra** A klaszterstruktúra áttekintése
 
+\newpage
 ## 2. Hány klaszteres megoldás tűnik a legjobbnak az 1. feladat változói esetében a 6.4.1. alpontban leírt R-beli módszerek alapján (vö. 6.6-6.10. ábrák)?
 
 A fenti ábra kedvezőtlenebb homogenitási indexeivel összhangban, a k=7 és k=9 közötti megoldás nem optimális a segítő ábrák alapján sem. 
@@ -179,10 +173,52 @@ Az *f(K)* mutató (bal alul) a k=2 megoldást emeli ki, k=2-nél ereszkedik f(k)
 A k=7 és k=9 megoldások közül a k=9 esetén kedvezőbb kissé a mutató, de mindegyikre nézve suboptimális a jelzés.
 GMM függvénnyel tesztelve az adatokat a BIC értéke egyaránt alacsony k=7 és k=9 között, de egyrészt nem optimális a BIC ezen struktúrák mellett, másrészt minden más segítő ábra a k=7, 8 vagy 9 megoldások nem kielégítő voltát erősíti.
 
-
+\newpage
 ## 3. Mentsd el az 1. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
 
+A *Validálás* modullal végzett számítások eredményét az alábbi táblázat összegzi.
+
+```{r echo = FALSE}
+validation1 <- read_delim("validationkmeans.csv", delim=";")[,1:9]
+
+knitr::kable(validation1, "simple")
+```
+
+**1.táblázat** Klaszterstruktúra validitás mérése ROPStattal
+
+A magyarázott variancia (EESS%) növekszik **k** értékének emelkedésével, de nem láthatunk kiugró javulást. 
+A Pontbiszeriális együttható értéke csökken, a klaszterszám emelkedésével. Optimális szintjént k=7-nél éri el.
+k=9 esetén nemcsak a PB-index, de a módosított Xien Beni mutató is kedvezőtlen, 0.353 értéket vesz fel, legjobb k=8 esetén.
+A Silhouette index mindegyik megoldás esetén kedvező, k=7-nél tetőzik, majd folyamatosan csökken.
+A CLdelta k=8 esetén a legjobb a három struktúra közül, elfogadható szinten. 
+A HCÁtlag természetszerűleg csökken  **k** emelkedésével
+A GDI24 index mindegyik megoldás esetén kedvezőtlen struktúrát jelez.
+
+Mindezek alapján a k=7 vagy k=8 struktúra tűnik megfelelőnek.
+
+\newpage
 ## 4. Végezz k-medoid elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
 
+```{r echo = FALSE}
+medoids <- tibble()
+memberships <- tibble()
+for (k in 7:9){
+    set.seed(2324234)
+    medoid_fit <- pam(dataset, k=k, metric="euclidean")
+    medoid <- tibble(data.frame(medoid_fit$medoids))
+    medoid$Klaszter  <- paste0("KL", 1:k)
+    medoid$HC  <-  hc(dataset, membership = medoid_fit$clustering, max_k = k)
+    medoid$k  <- k
+    medoid$type  <- 'stand'
+    medoids <- bind_rows(medoids, medoid)
+    membership <- tibble(c = data.frame(medoid_fit$clustering), k = k)
+    memberships <- bind_rows(memberships, membership)
+}
+medoids <- medoids %>%
+    pivot_longer(1:3, names_to = "var", values_to = "val")
+cluster_plot(medoids)
+```
+
+\newpage
 ## 5. Mentsd el a 4. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
 
