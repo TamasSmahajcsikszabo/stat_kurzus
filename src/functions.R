@@ -8,7 +8,7 @@ library(ggrepel)
 # library(concaveman)
 library(ggforce)
 library(forcats)
-sourceCpp("src/functions.cpp")
+# sourceCpp("src/functions.cpp")
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -1015,11 +1015,26 @@ explore_data <- function(dataset, p = 20, bins = 50, scaling = TRUE, cut_p = 0.1
   results
 }
 
+# cluster_plot <- function(data, type = "stand", cluster = "k", title = "", xlab = "Változók", ylab = "Standardizált átlagok", caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói", ...) {
+#   ggplot() +
+#     geom_col(data = data[data$type == type, ], aes(var, as.numeric(replace(val)), group = Klaszter, fill = as.numeric(replace(val)) > 0), color = "black", show.legend = FALSE) +
+#     facet_grid(~k ~ Klaszter, scales = "free") +
+#     geom_text(data = data[data$type == type, ], aes(0.75, 2, label = HC)) +
+#     theme_light() +
+#     scale_fill_manual(values = c("grey70", "white")) +
+#     labs(
+#       title = title,
+#       x = xlab,
+#       y = ylab,
+#       caption = caption
+#     )
+# }
+
 cluster_plot <- function(data, type = "stand", cluster = "k", title = "", xlab = "Változók", ylab = "Standardizált átlagok", caption = "Bontás klaszterek [felső szempont] és k értéke [jobb szempont] szerint \n A számértékek a homogenitási együttható (HC) mutatói", ...) {
   ggplot() +
     geom_col(data = data[data$type == type, ], aes(var, as.numeric(replace(val)), group = Klaszter, fill = as.numeric(replace(val)) > 0), color = "black", show.legend = FALSE) +
     facet_grid(~k ~ Klaszter, scales = "free") +
-    geom_text(data = data[data$type == type, ], aes(0.75, 2, label = HC)) +
+    geom_text(data = data[data$type == type, ], aes(0.85, 2, label = round(HC, 2))) +
     theme_light() +
     scale_fill_manual(values = c("grey70", "white")) +
     labs(
@@ -1027,5 +1042,18 @@ cluster_plot <- function(data, type = "stand", cluster = "k", title = "", xlab =
       x = xlab,
       y = ylab,
       caption = caption
-    )
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+hc <- function(data, membership, max_k, ...) {
+  data <- tibble(data.frame(data))
+  hc <- c()
+  for (i in 1:max_k) {
+    subdata <- data[membership == i, ]
+    d <- dist(as.matrix(subdata))
+    d <- mean(d, na.rm = TRUE)
+    hc <- c(hc, d)
+  }
+  hc
 }
