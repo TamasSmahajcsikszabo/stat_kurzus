@@ -1057,3 +1057,89 @@ hc <- function(data, membership, max_k, ...) {
   }
   hc
 }
+
+########################################################################################################
+### Plot function for cluster analysis ################################
+# TODO:
+# tune for best k with clusterCrit
+# not just medoids, but kmeans or hclust
+# HC as legend information or plot information
+pam_plot <- function(dataset, k_range = 7:9, selected_k = 7, plot_data = NA, plot_data_medoid = NA, ...) {
+  if (is.na(plot_data) || is.na(plot_data_medoid)) {
+    medoids <- tibble()
+    memberships <- tibble()
+    for (k in k_range) {
+      set.seed(2324234)
+      medoid_fit <- pam(dataset, k = k, metric = "euclidean")
+      medoid <- tibble(data.frame(medoid_fit$medoids))
+      medoid$Klaszter <- paste0("KL", 1:k)
+      medoid$HC <- hc(dataset, membership = medoid_fit$clustering, max_k = k)
+      medoid$k <- k
+      medoid$type <- "stand"
+      medoids <- bind_rows(medoids, medoid)
+      membership <- tibble(data.frame(c = medoid_fit$clustering), k = k)
+      memberships <- bind_rows(memberships, membership)
+    }
+
+
+    varnames <- expand.grid(names(medoids)[1:3], names(medoids)[1:3]) %>% filter(Var1 != Var2)
+    medoid_plot_data <- medoids %>%
+      filter(k %in% selected_k) %>%
+      mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
+    Sevenmembers <- memberships %>% filter(k %in% selected_k)
+    plot_data <- tibble(data.frame(dataset))
+    plot_data_prep <- bind_cols(plot_data, Sevenmembers)
+
+    plot_data <- tibble()
+    for (i in 1:nrow(varnames)) {
+      actual_pair <- as.character(unname(unlist(varnames[i, ])))
+      actual_df <- tibble(
+        var1 = rep(actual_pair[1], nrow(plot_data_prep)),
+        var2 = rep(actual_pair[2], nrow(plot_data_prep)),
+        x = unname(unlist(plot_data_prep[, actual_pair[1]])),
+        y = unname(unlist(plot_data_prep[, actual_pair[2]])),
+        KL = plot_data_prep$c
+      )
+      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+      plot_data <- bind_rows(plot_data, actual_df)
+    }
+    plot_data_medoid <- tibble()
+    for (i in 1:nrow(varnames)) {
+      actual_pair <- as.character(unname(unlist(varnames[i, ])))
+      actual_df <- tibble(
+        var1 = rep(actual_pair[1], nrow(medoid_plot_data)),
+        var2 = rep(actual_pair[2], nrow(medoid_plot_data)),
+        x = unname(unlist(medoid_plot_data[, actual_pair[1]])),
+        y = unname(unlist(medoid_plot_data[, actual_pair[2]])),
+        KL = medoid_plot_data$c
+      )
+      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+      plot_data_medoid <- bind_rows(plot_data_medoid, actual_df)
+    }
+
+    plot_data <- plot_data %>%
+      mutate(KL = as.factor(KL))
+    plot_data_medoid <- plot_data_medoid %>%
+      mutate(KL = as.factor(KL))
+
+    # saveRDS(plot_data, "plot_data.RDS")
+    # saveRDS(plot_data_medoid, "plot_data.RDS")
+
+    # plot_data <- readRDS("plot_data.RDS")
+    # plot_data_medoid <- readRDS("plot_data_medoid.RDS")
+  }
+
+  ggplot() +
+    #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
+    #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
+    geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
+    geom_point(data = plot_data_medoid, aes(x, y), color = "black", size = 8, shape = 18) +
+    geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
+    geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
+    facet_wrap(~var1 ~ var2, scales = "free") +
+    scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white")) +
+    scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white")) +
+    labs(x = "", y = "") +
+    theme_light() +
+    theme(legend.position = "bottom")
+}
