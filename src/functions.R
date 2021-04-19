@@ -1057,6 +1057,16 @@ hc <- function(data, membership, max_k, ...) {
   }
   hc
 }
+filter_out_nan <- function(df) {
+  contains_nan <- seq(1, ncol(df))[unlist(lapply(colnames(df), function(x) {
+    sum(is.nan(unlist(df[x]))) > 0
+  }))]
+  if (length(contains_nan) > 0) {
+    df[, -contains_nan]
+  } else {
+    df
+  }
+}
 
 ########################################################################################################
 ### Plot function for cluster analysis ################################
@@ -1064,31 +1074,57 @@ hc <- function(data, membership, max_k, ...) {
 # tune for best k with clusterCrit
 # not just medoids, but kmeans or hclust
 # HC as legend information or plot information
-pam_plot <- function(dataset, k_range = 7:9, selected_k = 7, plot_data = NA, plot_data_medoid = NA, ...) {
+clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", ...) {
+  library(clusterCrit)
   if (is.na(plot_data) || is.na(plot_data_medoid)) {
     medoids <- tibble()
     memberships <- tibble()
+    criteria <- tibble()
+
     for (k in k_range) {
       set.seed(2324234)
-      medoid_fit <- pam(dataset, k = k, metric = "euclidean")
-      medoid <- tibble(data.frame(medoid_fit$medoids))
+      if (method == "pam") {
+        medoid_fit <- pam(dataset, k = k, metric = "euclidean")
+        medoid <- tibble(data.frame(medoid_fit$medoids))
+        members <- medoid_fit$clustering
+        medoid$HC <- hc(dataset, membership = members, max_k = k)
+        membership <- tibble(data.frame(c = members), k = k)
+      } else if (method == "kmeans") {
+        medoid_fit <- kmeans(dataset, centers = k, iter.max = 20, nstart = 5, algorithm = "MacQueen")
+        members <- medoid_fit$cluster
+        medoid <- tibble(data.frame(medoid_fit$centers))
+        medoid$HC <- hc(dataset, membership = members, max_k = k)
+        membership <- tibble(data.frame(c = members), k = k)
+      }
+      actual_criteria <- tibble(data.frame(intCriteria(dataset, members, criteria_list)))
+      actual_criteria$k <- k
+      criteria <- bind_rows(criteria, actual_criteria)
       medoid$Klaszter <- paste0("KL", 1:k)
-      medoid$HC <- hc(dataset, membership = medoid_fit$clustering, max_k = k)
       medoid$k <- k
       medoid$type <- "stand"
       medoids <- bind_rows(medoids, medoid)
-      membership <- tibble(data.frame(c = medoid_fit$clustering), k = k)
       memberships <- bind_rows(memberships, membership)
     }
 
+
+    if (autotune) {
+      criteria <- filter_out_nan(criteria)
+      votes <- tibble(k = criteria$k, votes = 0)
+      for (qc in colnames(criteria)[-ncol(criteria)]) {
+        actual_qc <- unname(unlist(criteria[qc]))
+        best_qc <- bestCriterion(actual_qc, qc)
+        votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+      }
+      selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
+    }
 
     varnames <- expand.grid(names(medoids)[1:3], names(medoids)[1:3]) %>% filter(Var1 != Var2)
     medoid_plot_data <- medoids %>%
       filter(k %in% selected_k) %>%
       mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
-    Sevenmembers <- memberships %>% filter(k %in% selected_k)
+    selected_members <- memberships %>% filter(k %in% selected_k)
     plot_data <- tibble(data.frame(dataset))
-    plot_data_prep <- bind_cols(plot_data, Sevenmembers)
+    plot_data_prep <- bind_cols(plot_data, selected_members)
 
     plot_data <- tibble()
     for (i in 1:nrow(varnames)) {
@@ -1137,8 +1173,8 @@ pam_plot <- function(dataset, k_range = 7:9, selected_k = 7, plot_data = NA, plo
     geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
     geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
     facet_wrap(~var1 ~ var2, scales = "free") +
-    scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white")) +
-    scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white")) +
+    scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
+    scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
     labs(x = "", y = "") +
     theme_light() +
     theme(legend.position = "bottom")
