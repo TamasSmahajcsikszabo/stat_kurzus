@@ -1074,7 +1074,7 @@ filter_out_nan <- function(df) {
 # tune for best k with clusterCrit
 # not just medoids, but kmeans or hclust
 # HC as legend information or plot information
-clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", ...) {
+clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", ...) {
   library(clusterCrit)
   if (is.na(plot_data) || is.na(plot_data_medoid)) {
     medoids <- tibble()
@@ -1105,6 +1105,9 @@ clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = T
       medoids <- bind_rows(medoids, medoid)
       memberships <- bind_rows(memberships, membership)
     }
+    HCs <- medoids %>%
+      dplyr::select(k, HC) %>%
+      unique()
 
 
     if (autotune) {
@@ -1118,7 +1121,7 @@ clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = T
       selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
     }
 
-    varnames <- expand.grid(names(medoids)[1:3], names(medoids)[1:3]) %>% filter(Var1 != Var2)
+    varnames <- expand.grid(names(medoids)[1:Nvar], names(medoids)[1:Nvar]) %>% filter(Var1 != Var2)
     medoid_plot_data <- medoids %>%
       filter(k %in% selected_k) %>%
       mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
@@ -1165,7 +1168,7 @@ clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = T
     # plot_data_medoid <- readRDS("plot_data_medoid.RDS")
   }
 
-  ggplot() +
+  CLplot <- ggplot() +
     #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
     #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
     geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
@@ -1178,4 +1181,15 @@ clustering_plot <- function(dataset, method = "pam", k_range = 7:9, autotune = T
     labs(x = "", y = "") +
     theme_light() +
     theme(legend.position = "bottom")
+
+  if (exists("votes")) {
+    list(
+      "plot" = CLplot,
+      "votes" = votes,
+      "medoids" = medoids,
+      "homogenity" = HCs
+    )
+  } else {
+    CLplot
+  }
 }
