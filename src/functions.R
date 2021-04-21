@@ -60,9 +60,6 @@ filter_missing_data <- function(df) {
   df
 }
 
-# y_names <- names(missing_subset)
-# df <- dataset
-# df[df$index == 1443,]['Fizerő']
 impute_missing_values <- function(df, y_names = c(), repeats = 0, runname = repeats) {
   train_data <- df %>%
     filter_missing_data()
@@ -1074,7 +1071,7 @@ filter_out_nan <- function(df) {
 # tune for best k with clusterCrit
 # not just medoids, but kmeans or hclust
 # HC as legend information or plot information
-clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", ...) {
+clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, ...) {
   library(clusterCrit)
   if (is.na(plot_data) || is.na(plot_data_medoid)) {
     medoids <- tibble()
@@ -1168,19 +1165,34 @@ clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, au
     # plot_data_medoid <- readRDS("plot_data_medoid.RDS")
   }
 
-  CLplot <- ggplot() +
-    #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
-    #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
-    geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
-    geom_point(data = plot_data_medoid, aes(x, y), color = "black", size = 8, shape = 18) +
-    geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
-    geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
-    facet_wrap(~var1 ~ var2, scales = "free") +
-    scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-    scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-    labs(x = "", y = "") +
-    theme_light() +
-    theme(legend.position = "bottom")
+  if (!PCA) {
+    CLplot <- ggplot() +
+      #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
+      #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
+      geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
+      geom_point(data = plot_data_medoid, aes(x, y), color = "black", size = 8, shape = 18) +
+      geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
+      geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
+      facet_wrap(~var1 ~ var2, scales = "free") +
+      scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
+      scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
+      labs(x = "", y = "") +
+      theme_light() +
+      theme(legend.position = "bottom")
+  } else {
+    pca <- prcomp(scale(dataset))
+    ncomp <- 2
+    projected <- tibble(as.data.frame(predict(pca, scale(dataset))[, 1:ncomp]))
+    projected$cluster <- memberships[memberships$k == selected_k, ]$c
+
+    CLplot <- projected %>%
+      mutate(KL = factor(cluster, levels = seq(1, selected_k))) %>%
+      ggplot() +
+      geom_jitter(aes(PC1, PC2), color = "black", size = 4) +
+      geom_jitter(aes(PC1, PC2, color = KL), size = 3) +
+      scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
+      theme_light()
+  }
 
   if (exists("votes")) {
     list(
