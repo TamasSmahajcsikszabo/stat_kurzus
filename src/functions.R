@@ -1180,17 +1180,23 @@ clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, au
       theme_light() +
       theme(legend.position = "bottom")
   } else {
-    pca <- prcomp(scale(dataset))
+    pca <- prcomp(dataset)
     ncomp <- 2
-    projected <- tibble(as.data.frame(predict(pca, scale(dataset))[, 1:ncomp]))
+    projected <- tibble(as.data.frame(predict(pca, dataset)[, 1:ncomp]))
     projected$cluster <- memberships[memberships$k == selected_k, ]$c
+    projected_hull <- projected %>%
+      group_by(cluster) %>%
+      slice(chull(PC1, PC2)) %>%
+      mutate(KL = factor(cluster, levels = seq(1, selected_k)))
 
     CLplot <- projected %>%
       mutate(KL = factor(cluster, levels = seq(1, selected_k))) %>%
       ggplot() +
+      geom_polygon(data = projected_hull, aes(x = PC1, y = PC2, fill = KL), alpha = 1 / 2, color = "grey70") +
       geom_jitter(aes(PC1, PC2), color = "black", size = 4) +
       geom_jitter(aes(PC1, PC2, color = KL), size = 3) +
       scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
+      scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
       theme_light()
   }
 
