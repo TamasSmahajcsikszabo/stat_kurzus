@@ -1,6 +1,6 @@
 library(tidyverse)
 library(caret)
-source("src/functions.R")
+source("../src/functions.R")
 
 
 #### PREP STEPS
@@ -40,8 +40,8 @@ source("src/functions.R")
 # saveRDS(liwc_results, "twitter/liwc_results.RDS")
 
 # OTHER varialbes
-id_table <- readRDS("twitter/id_table.RDS")
-liwc_results <- readRDS("twitter/liwc_results.RDS")
+id_table <- readRDS("id_table.RDS")
+liwc_results <- readRDS("liwc_results.RDS")
 metadata <- tibble(
   id = 1:nrow(liwc_results)
 )
@@ -110,3 +110,12 @@ binned_density_data <- estimate_binned_density(df, n_bins = 10, radius_vector = 
 binned_density_plot(binned_density_data)
 
 exploration_plot(df, columns = c("i", "you", "we", "netspeak"))
+
+
+data_prepared <- aggregated %>%
+  dplyr::select(-M) %>%
+  spread(2:3, key = var, value = m)
+
+saveRDS(data_prepared, "prepared_data.RDS")
+
+autocluster(data_prepared[, names(data_prepared) %in% c("i", "you", "we", "soc_ref", "shehe", "family", "reward", "sexual", "netspeak")], nVar = 9, k_range = 2:7, PCA = TRUE, method = "pam")

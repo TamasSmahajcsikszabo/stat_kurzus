@@ -4,7 +4,7 @@ library(tidyr)
 library(stringr)
 library(dplyr)
 library(purrr)
-source("twitter/functions.R")
+source("functions.R")
 
 appname <- "sw8"
 key <- "rP5ml7aClBgBPk6Nj97X5Rqw2"
@@ -31,7 +31,7 @@ dicetower <- c("dicetower")
 
 
 ####################### search ################################
-all_data <- get_lines("twitter/data/")
+all_data <- get_lines("data/")
 top_users <- all_data %>%
   group_by(screen_name) %>%
   summarise(n = n()) %>%

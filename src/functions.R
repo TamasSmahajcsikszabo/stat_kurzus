@@ -9,6 +9,23 @@ library(ggrepel)
 library(ggforce)
 library(forcats)
 # sourceCpp("src/functions.cpp")
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
 
 get_tau <- function(x, y, algorithm = "Kendall", verbose = TRUE) {
   cd_est <- CD(x, y)
@@ -1071,7 +1088,15 @@ filter_out_nan <- function(df) {
 # tune for best k with clusterCrit
 # not just medoids, but kmeans or hclust
 # HC as legend information or plot information
-clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = 7, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, ...) {
+# dataset <- read_csv("../data/data.csv")
+# dataset <- dataset[c("PTelj", "PBoldog", "PMagány")]
+# k_range <- 7
+# method="pam"
+
+autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = NA, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, scaling = TRUE, ...) {
+  if (scaling) {
+    dataset <- scale(dataset)
+  }
   library(clusterCrit)
   if (is.na(plot_data) || is.na(plot_data_medoid)) {
     medoids <- tibble()
@@ -1106,16 +1131,25 @@ clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, au
       dplyr::select(k, HC) %>%
       unique()
 
+    if (is.na(selected_k)) {
+      autotune <- TRUE
+    } else {
+      autotune <- FALSE
+    }
 
     if (autotune) {
-      criteria <- filter_out_nan(criteria)
-      votes <- tibble(k = criteria$k, votes = 0)
-      for (qc in colnames(criteria)[-ncol(criteria)]) {
-        actual_qc <- unname(unlist(criteria[qc]))
-        best_qc <- bestCriterion(actual_qc, qc)
-        votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+      if (length(k_range) > 1) {
+        criteria <- filter_out_nan(criteria)
+        votes <- tibble(k = criteria$k, votes = 0)
+        for (qc in colnames(criteria)[-ncol(criteria)]) {
+          actual_qc <- unname(unlist(criteria[qc]))
+          best_qc <- bestCriterion(actual_qc, qc)
+          votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+        }
+        selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
+      } else {
+        selected_k <- k_range
       }
-      selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
     }
 
     varnames <- expand.grid(names(medoids)[1:Nvar], names(medoids)[1:Nvar]) %>% filter(Var1 != Var2)
@@ -1157,12 +1191,6 @@ clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, au
       mutate(KL = as.factor(KL))
     plot_data_medoid <- plot_data_medoid %>%
       mutate(KL = as.factor(KL))
-
-    # saveRDS(plot_data, "plot_data.RDS")
-    # saveRDS(plot_data_medoid, "plot_data.RDS")
-
-    # plot_data <- readRDS("plot_data.RDS")
-    # plot_data_medoid <- readRDS("plot_data_medoid.RDS")
   }
 
   if (!PCA) {
@@ -1205,9 +1233,12 @@ clustering_plot <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, au
       "plot" = CLplot,
       "votes" = votes,
       "medoids" = medoids,
-      "homogenity" = HCs
+      "homogenity" = HCs,
+      "criteria" = criteria
     )
   } else {
     CLplot
   }
 }
+
+# autocluster(dataset, k_range=7, PCA = TRUE)
