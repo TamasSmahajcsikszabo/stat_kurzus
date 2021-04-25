@@ -1446,7 +1446,7 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
     }
   } else if (method == "mclust") {
     list(
-      "hclust fit" = mka_fit,
+      "mclust fit" = mka_fit,
       "icl fit" = icl_fit,
       "hard membership" <- memberships,
       "boundary plot" = DR_plot,

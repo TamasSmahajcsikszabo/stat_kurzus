@@ -60,3 +60,8 @@ saveRDS(mkafit, "output/G10fit.RDS")
 
 mkafit <- Mclust(dataset, G = 3)
 saveRDS(mkafit, "output/G3fit.RDS")
+
+
+# 6.
+icl_fit_Best <- readRDS("output/icl_fit_prior.RDS")
+icl_fit_Best["hard memberships"]
