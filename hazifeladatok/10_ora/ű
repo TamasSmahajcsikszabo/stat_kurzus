@@ -1,0 +1,111 @@
+---
+title: "Házi feladatok megoldása 10."
+subtitle: "Modell-alapú klaszteranalízis (MKA) R-ben"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
+suppressMessages(library(mclust))
+#suppressMessages(dataset <- read_csv("../../data/data.csv"))
+# suppressMessages(labels <- read_csv('../../data/labels.csv'))
+
+```
+
+## 1. Végezz MKA-t a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel! Melyik megoldás tűnik a legjobbnak a BIC-grafikon alapján?
+
+
+Az *mclust* programcsomag *Mclust()* függvényét használva, különböző **G** érték-konfigurációkat teszteltem a BIC legnagyobb értékét, de ugyanakkor a képződő struktúra értelmezhetőségét is szem előtt tartva. 
+3 és 30 között vizsgálódva elmondható, hogy alapvetően három olyan keverékeloszlás típus mutatkozott meg, melynél a Bayes-féle Információs Kritérium a legjobb értéket érte el. 
+Ebben a nagy tartományban a G=28 esetben az EEV típus mutatta a lejobb BIC értéket, utána visszafelé haladva, a VEV áll G=24-nél, majd pedig a VEI típus illeszkedésénél  legjobb BIC G=15-nél.
+
+```{r echo=FALSE, fig.width=12, fig.height=8}
+
+mka3fit <- readRDS("output/mclust_fit3.RDS")
+mka10fit <- readRDS("output/mclust_fit10.RDS")
+mka30fit <- readRDS("output/mclust_fit30.RDS")
+mute(mka30fit["BIC plot"])
+```
+
+**1. ábra** MKA BIC eredmények G=3 és G=30 között
+
+Az alábbi ábrán az egyes keverék-komponensek sűrűségét, illetve box-whiskers eloszlásait látjuk.
+
+```{r echo=FALSE, fig.width=12, fig.height=8}
+
+mute(mka30fit["density plot"])
+```
+
+**2. ábra** MKA sűrűség és eloszlási eredmények G=28 között
+
+Mindezeken túl azonban, az értelmezhetőség végett az elemzést a G=3 és G=10 tartományra is megismételtem.
+
+
+```{r echo=FALSE, fig.width=12, fig.height=8}
+
+mute(mka10fit["BIC plot"])
+```
+
+**3. ábra** MKA BIC eredmények G=3 és G=10 között
+
+Ezen elemzés nyomán azt látjuk, a VEV eloszlástípus bizonyul a legjobbnak, mely a fenti, kiterjesztett elemzésnél is a legjobbak között volt, így az képződött struktúra értelmezhetőségének reményében a G=10, VEV struktúrát fogadom el.
+
+Ha az keverékkomponensek sűrűségét tekintjük (alábbi, 4. ábra)
+
+```{r echo=FALSE, fig.width=12, fig.height=8}
+
+mute(mka10fit["density plot"])
+```
+
+**4. ábra** MKA sűrűség és eloszlási eredmények G=10 között
+
+A keverékkomponensek sűrűsödés vizsgálata felveti hipotézisként, vajon mennyire értelmezhetőbb egy G=3 struktúra az információveszteség ellenére a G=10-zel szemben. 
+
+
+```{r echo=FALSE, fig.width=12, fig.height=8}
+
+b1 <- mute(mka3fit["boundary plot"])
+b2 <- mute(mka10fit["boundary plot"])
+```
+
+**5.ábra** A G=3 és a G=10 struktúrák összevetése az adatok első két főkomponense mentén képzett két dimenziós síkban; a klaszterhatárok bizonytalanságát a háttér árnyalata (*z-paraméter*) jelzi.
+
+
+## 2. Készítsd el az 1. feladat BIC-grafikonját k = 3 és 10 között!
+## 3. Készítsd el az 1. feladat legjobb BIC megoldásának classification ábráját!
+## 4. Készítsd el az 1. feladat legjobb BIC megoldásának uncertainty és density ábráját!
+## 5. Készítsd el az 1. feladat ICL-grafikonját k = 1 és 9 között! Ugyanaz a modell tűnik a legjobbnak, mint a BIC-grafikon alapján?
+## 6. Mentsd el a legjobb BIC-megoldást, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Hasonlítsd össze a kapott értékeket a 8. óra 1. feladatában kapott QC-értékekkel!
+
+

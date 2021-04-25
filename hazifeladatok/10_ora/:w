@@ -1,8 +1,0 @@
-Update
-
-• CLI utility for Psyling (score, load, save, retrieving, adjusting weights)
-• refactoring core tools to increase flexibility (uniform interface for working with the resources with extensibility) + tests
-• Data Model for the discourse analysis (density, configural frequency analysis)
-• Urgency App: refreshed the ML models, maintenance
-• theme repository for shiny/web apps (ggplot2, plotly)
-• PPT: matrix of scope and data layer, introduction

@@ -1082,6 +1082,202 @@ filter_out_nan <- function(df) {
   }
 }
 
+
+
+get_color_scale <- function(k) {
+  if (k >= 7) {
+    colour_scale_1 <- scales::seq_gradient_pal("#92B7A8", "#D6A904")(seq(0, 1, length.out = k / 2))
+    colour_scale_2 <- scales::seq_gradient_pal("#D6A904", "#184867")(seq(0, 1, length.out = k / 2))
+    c(colour_scale_1, colour_scale_2)
+  } else {
+    c("#184867", "#987E52", "#CB690E", "#7D3DD5", "#F0B375", "#A69383")
+  }
+}
+
+
+PCA_plot <- function(dataset, memberships, selected_k) {
+  pca <- prcomp(dataset)
+  ncomp <- 2
+  projected <- tibble(as.data.frame(predict(pca, dataset)[, 1:ncomp]))
+  projected$cluster <- memberships[memberships$k == selected_k, ]$c
+  projected$KL <- factor(projected$cluster, levels = seq(1, selected_k))
+  projected_hull <- projected %>%
+    group_by(cluster) %>%
+    slice(chull(PC1, PC2)) %>%
+    mutate(KL = factor(cluster, levels = seq(1, selected_k)))
+
+  ggplot() +
+    geom_polygon(data = projected_hull, aes(x = PC1, y = PC2, fill = KL), alpha = 1 / 2, color = "grey70") +
+    geom_jitter(data = projected, aes(PC1, PC2), color = "black", size = 4) +
+    geom_jitter(data = projected, aes(PC1, PC2, color = KL), size = 3) +
+    scale_color_manual(values = get_color_scale(selected_k)) +
+    scale_fill_manual(values = get_color_scale(selected_k)) +
+    theme_light()
+}
+
+MclustDR_plot <- function(DR_object, selected_k) {
+  # expects an MclustDR object as input
+  class_data <- data.frame(class = DR_object$classification)
+  plot_data <- tibble(data.frame(DR_object$dir[, c(1:2)]), class_data)
+  l <- nrow(plot_data)
+  colnames(plot_data) <- c("x", "y", "class")
+  pred <- tibble(data.frame(t(predict2D.MclustDR(DR_object, ngrid = l)$uncertainty)))
+  pred <- pred %>%
+    pivot_longer(1:l, names_to = "names", values_to = "z") %>%
+    dplyr::select(-names)
+  x_range <- range(plot_data$x)
+  y_range <- range(plot_data$y)
+  x_axis <- seq(x_range[[1]], x_range[[2]], length.out = l)
+  y_axis <- seq(y_range[[1]], y_range[[2]], length.out = l)
+  grid <- tibble(data.frame(expand.grid(x_axis, y_axis)))
+  grid <- bind_cols(grid, pred)
+  colnames(grid) <- c("x", "y", "z")
+
+  ggplot() +
+    geom_raster(data = grid, aes(x, y, alpha = z)) +
+    geom_point(data = plot_data, aes(x, y, color = class), size = 3) +
+    scale_color_manual(values = get_color_scale(selected_k)) +
+    theme_light()
+}
+
+BIC_plot <- function(MclustObject, k_range) {
+  G <- k_range
+  n_row <- max(G) - min(G) + 1
+  selected_k <- MclustObject$G
+  n_col <- ncol(MclustObject["BIC"]$BIC)
+
+
+
+  bic_data <- data.frame(matrix(as.numeric(MclustObject["BIC"]$BIC[1:(n_col * selected_k)]), ncol = n_col, nrow = n_row, byrow = FALSE))
+  colnames(bic_data) <- colnames(MclustObject["BIC"]$BIC)
+
+  bic_data <- tibble(bic_data) %>%
+    mutate(k = seq(min(G), max(G))) %>%
+    pivot_longer(1:ncol(bic_data), names_to = "var", values_to = "val")
+
+  label_data <- bic_data %>%
+    group_by(var) %>%
+    summarise(val = max(val, na.rm = TRUE)) %>%
+    left_join(bic_data)
+
+  ggplot(bic_data) +
+    geom_path(aes(k, val, group = var, color = var)) +
+    geom_point(aes(k, val, group = var, color = var)) +
+    geom_label_repel(data = label_data, aes(k, val, fill = var, group = var, label = paste0(var, ": ", round(val, 2))), color = "black", alpha = 1 / 2, show.legend = FALSE) +
+    theme_light() +
+    scale_color_manual(values = get_color_scale(length(colnames(MclustObject["BIC"]$BIC)))) +
+    scale_fill_manual(values = get_color_scale(length(colnames(MclustObject["BIC"]$BIC)))) +
+    theme(legend.position = "bottom") +
+    scale_x_continuous(breaks = seq(min(G), max(G))) +
+    labs(
+      x = "Mclust G",
+      y = "Bayesian Information Criterion (BIC)"
+    )
+}
+
+ICL_plot <- function(MclustICLObject, k_range) {
+  G <- k_range
+  n_row <- max(G) - min(G) + 1
+  n_col <- ncol(MclustICLObject)
+
+
+
+  icl_data <- data.frame(matrix(as.numeric(MclustICLObject[1:(n_col * n_row)]), ncol = n_col, nrow = n_row, byrow = FALSE))
+  colnames(icl_data) <- colnames(MclustICLObject)
+
+  icl_data <- tibble(icl_data) %>%
+    mutate(k = seq(min(G), max(G))) %>%
+    pivot_longer(1:ncol(icl_data), names_to = "var", values_to = "val")
+
+  label_data <- icl_data %>%
+    group_by(var) %>%
+    summarise(val = max(val, na.rm = TRUE)) %>%
+    left_join(icl_data)
+
+  ggplot(icl_data) +
+    geom_path(aes(k, val, group = var, color = var)) +
+    geom_point(aes(k, val, group = var, color = var)) +
+    geom_label_repel(data = label_data, aes(k, val, fill = var, group = var, label = paste0(var, ": ", round(val, 2))), color = "black", alpha = 1 / 2, show.legend = FALSE) +
+    theme_light() +
+    scale_color_manual(values = get_color_scale(length(colnames(MclustICLObject)))) +
+    scale_fill_manual(values = get_color_scale(length(colnames(MclustICLObject)))) +
+    theme(legend.position = "bottom") +
+    scale_x_continuous(breaks = seq(min(G), max(G))) +
+    labs(
+      x = "Mclust G",
+      y = "Integrated Complete-data Likelihood (ICL) criterion"
+    )
+}
+
+
+
+
+Mclustdensity_plot <- function(object, dimens = 1, ngrid = 100, G = 10, memberships = memberships) {
+  # code from plot.MclustDR
+  dimens <- dimens[1]
+  dir <- object$dir[, dimens, drop = FALSE]
+  par <- projpar.MclustDR(object, dimens)
+  Mu <- par$mean
+  Sigma <- par$variance
+  q <- seq(min(dir), max(dir), length = 2 * ngrid)
+  dens <- matrix(as.double(NA), length(q), G)
+  for (j in 1:G) {
+    dens[, j] <- dnorm(q, Mu[j, ], sqrt(Sigma[
+      , ,
+      j
+    ]))
+  }
+  if (object$type == "MclustDA") {
+    d <- t(apply(dens, 1, function(x, p = object$pro) {
+      p *
+        x
+    }))
+    dens <- matrix(as.double(NA), length(q), nclass)
+    tab <- table(y, class)
+    for (i in 1:ncol(tab)) {
+      j <- which(tab[, i] > 0)
+      dens[, i] <- apply(d[, j, drop = FALSE], 1, sum)
+    }
+  }
+
+  plot_data <- bind_cols(tibble(q = q), tibble(data.frame(dens)))
+  colnames(plot_data) <- c("q", paste0("component_", 1:G))
+
+  plot_data <- plot_data %>%
+    pivot_longer(2:ncol(plot_data), names_to = "Components", values_to = "val") %>%
+    mutate(Components = factor(Components, levels = paste0("component_", 1:G)))
+
+  density_plot <- ggplot() +
+    geom_line(data = plot_data, aes(q, val, group = Components, color = Components)) +
+    scale_color_manual(values = get_color_scale(G)) +
+    theme_light() +
+    labs(
+      y = "Density",
+      x = "Dim1"
+    ) +
+    theme(
+      legend.position = c(1, 1),
+      legend.justification = c(1, 1),
+      legend.background = element_rect(fill = "white", color = "grey60")
+    )
+
+  boxplot_data <- tibble(dir = unname(unlist(data.frame(dir))))
+  boxplot_data <- bind_cols(boxplot_data, memberships)
+  colnames(boxplot_data) <- c("D", "k", "Cluster")
+  boxplot_data$Cluster <- factor(boxplot_data$Cluster, levels = 1:G)
+
+  box_plot <- ggplot() +
+    geom_boxplot(data = boxplot_data, aes(D, Cluster, group = Cluster, fill = Cluster), width = .5, show.legend = FALSE, alpha = 1 / 2) +
+    scale_fill_manual(values = get_color_scale(G)) +
+    theme_light() +
+    labs(
+      x = "Dim1",
+      y = "Components"
+    )
+
+  ggarrange(density_plot, box_plot, ncol = 1)
+}
+
 ########################################################################################################
 ### Plot function for cluster analysis ################################
 # TODO:
@@ -1093,152 +1289,180 @@ filter_out_nan <- function(df) {
 # k_range <- 7
 # method="pam"
 
-autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = NA, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, scaling = TRUE, ...) {
+autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = NA, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, scaling = TRUE, prior = FALSE, ...) {
   if (scaling) {
     dataset <- scale(dataset)
   }
   library(clusterCrit)
-  if (is.na(plot_data) || is.na(plot_data_medoid)) {
-    medoids <- tibble()
-    memberships <- tibble()
-    criteria <- tibble()
+  if (method %in% c("pam", "kmeans")) {
+    if (is.na(plot_data) || is.na(plot_data_medoid)) {
+      medoids <- tibble()
+      memberships <- tibble()
+      criteria <- tibble()
 
-    for (k in k_range) {
-      set.seed(2324234)
-      if (method == "pam") {
-        medoid_fit <- pam(dataset, k = k, metric = "euclidean")
-        medoid <- tibble(data.frame(medoid_fit$medoids))
-        members <- medoid_fit$clustering
-        medoid$HC <- hc(dataset, membership = members, max_k = k)
-        membership <- tibble(data.frame(c = members), k = k)
-      } else if (method == "kmeans") {
-        medoid_fit <- kmeans(dataset, centers = k, iter.max = 20, nstart = 5, algorithm = "MacQueen")
-        members <- medoid_fit$cluster
-        medoid <- tibble(data.frame(medoid_fit$centers))
-        medoid$HC <- hc(dataset, membership = members, max_k = k)
-        membership <- tibble(data.frame(c = members), k = k)
-      }
-      actual_criteria <- tibble(data.frame(intCriteria(dataset, members, criteria_list)))
-      actual_criteria$k <- k
-      criteria <- bind_rows(criteria, actual_criteria)
-      medoid$Klaszter <- paste0("KL", 1:k)
-      medoid$k <- k
-      medoid$type <- "stand"
-      medoids <- bind_rows(medoids, medoid)
-      memberships <- bind_rows(memberships, membership)
-    }
-    HCs <- medoids %>%
-      dplyr::select(k, HC) %>%
-      unique()
-
-    if (is.na(selected_k)) {
-      autotune <- TRUE
-    } else {
-      autotune <- FALSE
-    }
-
-    if (autotune) {
-      if (length(k_range) > 1) {
-        criteria <- filter_out_nan(criteria)
-        votes <- tibble(k = criteria$k, votes = 0)
-        for (qc in colnames(criteria)[-ncol(criteria)]) {
-          actual_qc <- unname(unlist(criteria[qc]))
-          best_qc <- bestCriterion(actual_qc, qc)
-          votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+      for (k in k_range) {
+        set.seed(2324234)
+        if (method == "pam") {
+          medoid_fit <- pam(dataset, k = k, metric = "euclidean")
+          medoid <- tibble(data.frame(medoid_fit$medoids))
+          members <- medoid_fit$clustering
+          medoid$HC <- hc(dataset, membership = members, max_k = k)
+          membership <- tibble(data.frame(c = members), k = k)
+        } else if (method == "kmeans") {
+          medoid_fit <- kmeans(dataset, centers = k, iter.max = 20, nstart = 5, algorithm = "MacQueen")
+          members <- medoid_fit$cluster
+          medoid <- tibble(data.frame(medoid_fit$centers))
+          medoid$HC <- hc(dataset, membership = members, max_k = k)
+          membership <- tibble(data.frame(c = members), k = k)
         }
-        selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
+        actual_criteria <- tibble(data.frame(intCriteria(dataset, members, criteria_list)))
+        actual_criteria$k <- k
+        criteria <- bind_rows(criteria, actual_criteria)
+        medoid$Klaszter <- paste0("KL", 1:k)
+        medoid$k <- k
+        medoid$type <- "stand"
+        medoids <- bind_rows(medoids, medoid)
+        memberships <- bind_rows(memberships, membership)
+      }
+      HCs <- medoids %>%
+        dplyr::select(k, HC) %>%
+        unique()
+
+      if (is.na(selected_k)) {
+        autotune <- TRUE
       } else {
-        selected_k <- k_range
+        autotune <- FALSE
+      }
+
+      if (autotune) {
+        if (length(k_range) > 1) {
+          criteria <- filter_out_nan(criteria)
+          votes <- tibble(k = criteria$k, votes = 0)
+          for (qc in colnames(criteria)[-ncol(criteria)]) {
+            actual_qc <- unname(unlist(criteria[qc]))
+            best_qc <- bestCriterion(actual_qc, qc)
+            votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+          }
+          selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
+        } else {
+          selected_k <- k_range
+        }
+      }
+
+      varnames <- expand.grid(names(medoids)[1:Nvar], names(medoids)[1:Nvar]) %>% filter(Var1 != Var2)
+      medoid_plot_data <- medoids %>%
+        filter(k %in% selected_k) %>%
+        mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
+      selected_members <- memberships %>% filter(k %in% selected_k)
+      plot_data <- tibble(data.frame(dataset))
+      plot_data_prep <- bind_cols(plot_data, selected_members)
+
+      plot_data <- tibble()
+      for (i in 1:nrow(varnames)) {
+        actual_pair <- as.character(unname(unlist(varnames[i, ])))
+        actual_df <- tibble(
+          var1 = rep(actual_pair[1], nrow(plot_data_prep)),
+          var2 = rep(actual_pair[2], nrow(plot_data_prep)),
+          x = unname(unlist(plot_data_prep[, actual_pair[1]])),
+          y = unname(unlist(plot_data_prep[, actual_pair[2]])),
+          KL = plot_data_prep$c
+        )
+        colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+        plot_data <- bind_rows(plot_data, actual_df)
+      }
+      plot_data_medoid <- tibble()
+      for (i in 1:nrow(varnames)) {
+        actual_pair <- as.character(unname(unlist(varnames[i, ])))
+        actual_df <- tibble(
+          var1 = rep(actual_pair[1], nrow(medoid_plot_data)),
+          var2 = rep(actual_pair[2], nrow(medoid_plot_data)),
+          x = unname(unlist(medoid_plot_data[, actual_pair[1]])),
+          y = unname(unlist(medoid_plot_data[, actual_pair[2]])),
+          KL = medoid_plot_data$c
+        )
+        colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+        plot_data_medoid <- bind_rows(plot_data_medoid, actual_df)
+      }
+
+      plot_data <- plot_data %>%
+        mutate(KL = as.factor(KL))
+      plot_data_medoid <- plot_data_medoid %>%
+        mutate(KL = as.factor(KL))
+
+      if (!PCA) {
+        CLplot <- ggplot() +
+          #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
+          #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
+          geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
+          geom_point(data = plot_data_medoid, aes(x, y), color = "black", size = 8, shape = 18) +
+          geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
+          geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
+          facet_wrap(~var1 ~ var2, scales = "free") +
+          scale_color_manual(values = get_color_scale(selected_k)) +
+          scale_fill_manual(values = get_color_scale(selected_k)) +
+          labs(x = "", y = "") +
+          theme_light() +
+          theme(legend.position = "bottom")
+      } else {
+        CLplot <- PCA_plot(dataset, memberships = memberships, selected_k = selected_k)
       }
     }
+  } else if (method == "mclust") {
+    mka_fit <- Mclust(dataset, G = k_range)
+    selected_k <- mka_fit$G
+    memberships <- tibble(k = selected_k, c = mka_fit$classification)
+    DR <- MclustDR(mka_fit)
+    DR_plot <- MclustDR_plot(DR, selected_k)
+    centers <- summary(mka_fit, parameters = TRUE)
+    homogenity <- hc(dataset, memberships$c, max_k = selected_k)
+    bic_plot <- BIC_plot(mka_fit, k_range)
+    pca_plot <- PCA_plot(dataset, membership = memberships, selected_k)
 
-    varnames <- expand.grid(names(medoids)[1:Nvar], names(medoids)[1:Nvar]) %>% filter(Var1 != Var2)
-    medoid_plot_data <- medoids %>%
-      filter(k %in% selected_k) %>%
-      mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
-    selected_members <- memberships %>% filter(k %in% selected_k)
-    plot_data <- tibble(data.frame(dataset))
-    plot_data_prep <- bind_cols(plot_data, selected_members)
-
-    plot_data <- tibble()
-    for (i in 1:nrow(varnames)) {
-      actual_pair <- as.character(unname(unlist(varnames[i, ])))
-      actual_df <- tibble(
-        var1 = rep(actual_pair[1], nrow(plot_data_prep)),
-        var2 = rep(actual_pair[2], nrow(plot_data_prep)),
-        x = unname(unlist(plot_data_prep[, actual_pair[1]])),
-        y = unname(unlist(plot_data_prep[, actual_pair[2]])),
-        KL = plot_data_prep$c
-      )
-      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
-      plot_data <- bind_rows(plot_data, actual_df)
+    if (prior) {
+      icl_fit <- mclustICL(dataset, G = k_range, prior = priorControl())
+    } else {
+      icl_fit <- mclustICL(dataset, G = k_range)
     }
-    plot_data_medoid <- tibble()
-    for (i in 1:nrow(varnames)) {
-      actual_pair <- as.character(unname(unlist(varnames[i, ])))
-      actual_df <- tibble(
-        var1 = rep(actual_pair[1], nrow(medoid_plot_data)),
-        var2 = rep(actual_pair[2], nrow(medoid_plot_data)),
-        x = unname(unlist(medoid_plot_data[, actual_pair[1]])),
-        y = unname(unlist(medoid_plot_data[, actual_pair[2]])),
-        KL = medoid_plot_data$c
+    icl_plot <- ICL_plot(icl_fit, k_range)
+
+    density_plot <- Mclustdensity_plot(DR, dimens = 1, G = selected_k, memberships = memberships)
+
+    # TODO:
+    # plot for all measures
+    # hard membership
+    # uncertainty
+  }
+  if (method %in% c("pam", "kmeans")) {
+    if (exists("votes")) {
+      list(
+        "plot" = CLplot,
+        "votes" = votes,
+        "medoids" = medoids,
+        "homogenity" = HCs,
+        "criteria" = criteria
       )
-      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
-      plot_data_medoid <- bind_rows(plot_data_medoid, actual_df)
+    } else {
+      CLplot
     }
-
-    plot_data <- plot_data %>%
-      mutate(KL = as.factor(KL))
-    plot_data_medoid <- plot_data_medoid %>%
-      mutate(KL = as.factor(KL))
-  }
-
-  if (!PCA) {
-    CLplot <- ggplot() +
-      #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
-      #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
-      geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
-      geom_point(data = plot_data_medoid, aes(x, y), color = "black", size = 8, shape = 18) +
-      geom_point(data = plot_data_medoid, aes(x, y, color = KL), size = 7, shape = 18) +
-      geom_text(data = plot_data_medoid, aes(x, y, label = KL), size = 3, shape = 18) +
-      facet_wrap(~var1 ~ var2, scales = "free") +
-      scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-      scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-      labs(x = "", y = "") +
-      theme_light() +
-      theme(legend.position = "bottom")
-  } else {
-    pca <- prcomp(dataset)
-    ncomp <- 2
-    projected <- tibble(as.data.frame(predict(pca, dataset)[, 1:ncomp]))
-    projected$cluster <- memberships[memberships$k == selected_k, ]$c
-    projected_hull <- projected %>%
-      group_by(cluster) %>%
-      slice(chull(PC1, PC2)) %>%
-      mutate(KL = factor(cluster, levels = seq(1, selected_k)))
-
-    CLplot <- projected %>%
-      mutate(KL = factor(cluster, levels = seq(1, selected_k))) %>%
-      ggplot() +
-      geom_polygon(data = projected_hull, aes(x = PC1, y = PC2, fill = KL), alpha = 1 / 2, color = "grey70") +
-      geom_jitter(aes(PC1, PC2), color = "black", size = 4) +
-      geom_jitter(aes(PC1, PC2, color = KL), size = 3) +
-      scale_color_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-      scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", "#987E53", "#92B7A8", "#184867", "white", "coral", "coral4")) +
-      theme_light()
-  }
-
-  if (exists("votes")) {
+  } else if (method == "mclust") {
     list(
-      "plot" = CLplot,
-      "votes" = votes,
-      "medoids" = medoids,
-      "homogenity" = HCs,
-      "criteria" = criteria
+      "hclust fit" = mka_fit,
+      "icl fit" = icl_fit,
+      "hard membership" <- memberships,
+      "boundary plot" = DR_plot,
+      "BIC plot" = bic_plot,
+      "ICL plot" = icl_plot,
+      "PCA plot" = pca_plot,
+      "density plot" = density_plot,
+      "centers" = centers,
+      "homogenity" = homogenity,
+      "best k" = selected_k
     )
-  } else {
-    CLplot
   }
 }
 
-# autocluster(dataset, k_range=7, PCA = TRUE)
+# autocluster(dataset, k_range = 7, PCA = TRUE)
+# autocluster(dataset, k_range = 7, PCA = FALSE)
+# mDR <- autocluster(dataset, k_range = 3:20, method = "mclust", PCA = FALSE)
+# mDR["BIC plot"]
+# mDR["best k"]

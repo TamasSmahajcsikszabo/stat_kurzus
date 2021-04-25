@@ -1,0 +1,446 @@
+---
+title: "Házi feladatok megoldása 9."
+subtitle: "k-középpontú klaszteranalízis R-ben"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
+suppressMessages(dataset <- read_csv("../../data/data.csv"))
+# suppressMessages(labels <- read_csv('../../data/labels.csv'))
+
+```
+
+## 1. Végezz k-közép elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
+
+A k-közép elemzéseket 5 kezdeti centroid struktúrával, maximális 20 iterációval végeztem (MacQueen-féle algoritmussal).
+Az eredményekről az alábbi áttekintő ábra tájékoztat.
+A képződött klaszterek standard átlagait, és a homogenitási együtthatókat is feltüntettem.
+
+```{r echo=FALSE, fig.height=10, fig.width=12}
+dataset <- dataset[c('PTelj', 'PBoldog', 'PMagány')]
+dataset <- scale(dataset)
+
+set.seed(12813)
+opt_SH <- Optimal_Clusters_KMeans(dataset, 10, criterion = "silhouette", "random", 5, plot_clusters=FALSE) 
+
+set.seed(12813)
+opt_EESS <- Optimal_Clusters_KMeans(dataset, 10, criterion = "variance_explained", "random", 5, plot_clusters=FALSE) 
+
+
+set.seed(12813)
+opt_dist <- Optimal_Clusters_KMeans(dataset, 10, criterion = "distortion_fK", plot_clusters=FALSE) 
+
+set.seed(12813)
+opt_gmm <- Optimal_Clusters_GMM(dataset, max_clusters=10, criterion="BIC",
+dist_mode="eucl_dist", seed_mode="random_subset",
+km_iter=15, em_iter=10, var_floor=1e-10, plot_data=FALSE)
+
+p1 <- tibble(x = seq(1, length(opt_EESS)),
+             y=opt_EESS) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size=3) +
+        labs(
+             title = "Meg nem magyarázott varianca",
+             x = "k",
+             y = "%"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_EESS)))
+
+p2 <- tibble(x = seq(1, length(opt_SH)),
+             y=opt_SH) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        labs(
+             title = "Silhouette együttható",
+             x = "k",
+             y = "Silhouette"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_SH)))
+r1 <- ggarrange(p1, p2, nrow=1)
+
+p3 <- tibble(x = seq(1, length(opt_dist)),
+             y=opt_dist) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        geom_segment(aes(x=-Inf, xend=Inf, y=0.85, yend=0.85), size=0.25, color="#184867", linetype="dashed") +
+        labs(
+             title = "f(K) mutató",
+             x = "k",
+             y = "f(K)"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_dist)))
+
+p4 <- tibble(x = seq(1, length(opt_gmm)),
+             y=opt_gmm) %>%
+    ggplot() +
+        theme_light() +
+        geom_path(aes(x,y), linetype="dotted") +
+        geom_point(aes(x,y), color = "#D6A904", size=3) + 
+        geom_text(aes(x,y,label=paste0(round(y,2))), vjust=-0.5, size = 3) +
+        labs(
+             title = "GMM",
+             x = "k",
+             y = "BIC"
+        ) +
+        scale_x_continuous(breaks = seq(1, length(opt_gmm)))
+
+r2 <- ggarrange(p3, p4, nrow=1)
+
+helper_plots <- ggarrange(r1, r2, nrow=2)
+
+centers <- tibble()
+clustersing_vectors <- tibble()
+
+for (k in c(7,8,9)){
+    set.seed(23432242)
+    clustering <- kmeans(dataset, center = k, iter.max = 20, nstart = 5, "MacQueen")
+    centers_i <- tibble(data.frame(clustering$centers))
+    centers_i$Klaszter <- paste0("KL", 1:k)
+    centers_i$k <- k
+    centers_i$type <- 'stand'
+    centers_i$HC <- hc(dataset, membership = clustering$cluster, max_k = k) 
+    centers <- bind_rows(centers, centers_i)
+    membership <- tibble(data.frame(c = clustering$cluster))
+    membership$k  <- k
+    clustersing_vectors <- bind_rows(clustersing_vectors, membership)
+}
+```
+
+```{r echo=FALSE, fig.width = 12, fig.height=9}
+
+centers_plot <- centers %>%
+    pivot_longer(1:3, names_to = "var", values_to="val")
+
+cluster_plot(centers_plot, caption="Felbontás a klaszterek (KL)  és k alapján")
+
+```
+**1.ábra** A klaszterstruktúra áttekintése
+
+\newpage
+## 2. Hány klaszteres megoldás tűnik a legjobbnak az 1. feladat változói esetében a 6.4.1. alpontban leírt R-beli módszerek alapján (vö. 6.6-6.10. ábrák)?
+
+A fenti ábra kedvezőtlenebb homogenitási indexeivel összhangban, a k=7 és k=9 közötti megoldás nem optimális a segítő ábrák alapján sem. 
+
+```{r echo=FALSE, fig.width = 12, fig.height=10}
+helper_plots
+
+```
+**2. ábra:** Segítő ábrák
+
+A meg nem magyarázott varianca könyökábrája (bal felül), illetve a Silhouette együttható (jobb felül) egy k=2 megoldás fölényét erősíti a k = 7, 8 illetve 9 megoldásokkal szemben.
+Az *f(K)* mutató (bal alul) a k=2 megoldást emeli ki, k=2-nél ereszkedik f(k) értéke a 0.85 küszöb alá.
+A k=7 és k=9 megoldások közül a k=9 esetén kedvezőbb kissé a mutató, de mindegyikre nézve suboptimális a jelzés.
+GMM függvénnyel tesztelve az adatokat a BIC értéke egyaránt alacsony k=7 és k=9 között, de egyrészt nem optimális a BIC ezen struktúrák mellett, másrészt minden más segítő ábra a k=7, 8 vagy 9 megoldások nem kielégítő voltát erősíti.
+
+\newpage
+## 3. Mentsd el az 1. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
+A *Validálás* modullal végzett számítások eredményét az alábbi táblázat összegzi.
+
+```{r echo = FALSE}
+validation1 <- read_delim("validationkmeans.csv", delim=";")[,1:9]
+
+knitr::kable(validation1, "simple")
+```
+
+**1.táblázat** Klaszterstruktúra validitás mérése ROPStattal, k-középpontú klaszterelemzéshez
+
+A magyarázott variancia (EESS%) növekszik **k** értékének emelkedésével, de nem láthatunk kiugró javulást. 
+A Pontbiszeriális együttható értéke csökken, a klaszterszám emelkedésével. Optimális szintjént k=7-nél éri el.
+k=9 esetén nemcsak a PB-index, de a módosított Xie-Beni mutató is kedvezőtlen, 0.353 értéket vesz fel, legjobb k=8 esetén.
+A Silhouette index mindegyik megoldás esetén kedvező, k=7-nél tetőzik, majd folyamatosan csökken.
+A CLdelta k=8 esetén a legjobb a három struktúra közül, elfogadható szinten. 
+A HCÁtlag természetszerűleg csökken  **k** emelkedésével.
+A GDI24 index mindegyik megoldás esetén kedvezőtlen struktúrát jelez.
+
+Mindezek alapján a k=7 vagy k=8 struktúra tűnik megfelelőnek.
+A hét klaszteres megoldást erősíti egy egyedi, *clustering_plot* nevű R függvényem, mely a **clusterCrit** csomag *IntCriterion*, illetve *BestCriterion* függvényei segítségével **k** különböző értékei mentén teszteli a **clusterCrit** R csomag adta tetszőleges illeszkedési mutatókat, és a *BestCriterion* függvény adta szavazatokat gyűjtve, numerikusan kifejezi, mely *k* lehet a legmegfelelőbb. 
+A legjobb **k** értéknek azt veszi a megadott vektorból, mely a legtöbb szavazat alapján többséget szerez (*majority voting*).
+Az összes (42) illeszkedési mutatót bevonva a hét klaszteres megoldás tűnik megfelelőnek.
+
+A függvény a változók egyes párjai mentén mutatja az adatok eloszlását, a klaszterbe tartozást adott *k* érték mentén színkóddal jelöli; továbbá rombusz (gyémánt) alakú ponttal tünteti fel a klaszter középpontját (k-középpont esetén a centroid, medoid elemzésnél a medoid).
+
+A függvény jelenlegi forráskódját a **Függelékben** tüntettem fel.
+Az eredményt a függvény adta ábrával foglalom össze alább.
+
+```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+suppressMessages(cl_plot <- clustering_plot(dataset, k_range=7:9, method="kmeans"))
+mute(cl_plot["plot"][[1]])
+```
+
+**3. ábra** A klaszterek változó-páronkénti megoszlása a centroidokkal mint rombuszokkal.
+
+Az illeszkedési mutatók összesített szavazatait az alábbi táblázat foglalja össze.
+Az összes szavazatok száma 41, mert egy mutató nem volt alkalmazható az adatokra.
+
+```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+knitr::kable(cl_plot["votes"][[1]], "simple")
+```
+
+**2. táblázat** A szavaztok eloszlása *k* értékei mentén a **clusterCrit** programból nyert adekvációs mutatókkal
+
+A homogenitási indexekről az alábbi táblázat tájékoztat.
+
+```{r echo=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+HCs <- cl_plot['homogenity'][[1]]
+HCsummary <- HCs %>%
+    mutate(k = as.factor(k)) %>%
+    group_by(k) %>%
+    mutate(K = row_number()) %>%
+    spread(K, HC)
+HCsummary[is.na(HCsummary)]  <- 0
+knitr::kable(HCsummary, "simple")
+```
+
+**3.táblázat** A homogenitási indexek klaszterenként k-középpontú elemzésben 
+
+
+\newpage
+## 4. Végezz k-medoid elemzést R-ben a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel, standardizálással k = 7 és 9 között!
+
+k-medoid elemzést végeztem a *pam* **R** függvénnyel, euklideszi távolság paraméterrel.
+Az eredmények közlését a standard átlagok klaszterenkénti megoszlásával kezdem az alábbi ábrán.
+
+```{r echo = FALSE, fig.width=12, fig.height=10}
+medoids <- tibble()
+memberships <- tibble()
+for (k in 7:9){
+    set.seed(2324234)
+    medoid_fit <- pam(dataset, k=k, metric="euclidean")
+    medoid <- tibble(data.frame(medoid_fit$medoids))
+    medoid$Klaszter  <- paste0("KL", 1:k)
+    medoid$HC  <-  hc(dataset, membership = medoid_fit$clustering, max_k = k)
+    medoid$k  <- k
+    medoid$type  <- 'stand'
+    medoids <- bind_rows(medoids, medoid)
+    membership <- tibble(data.frame(c = medoid_fit$clustering), k = k)
+    memberships <- bind_rows(memberships, membership)
+}
+medoids <- medoids %>%
+    pivot_longer(1:3, names_to = "var", values_to = "val")
+cluster_plot(medoids)
+write_csv(memberships, "medoidmemberships.csv")
+```
+
+**4. ábra** A k-medoid módszerrel képzett klaszterek standardizált átlagainak és homogenitásának áttekintése
+
+\newpage
+## 5. Mentsd el a 4. feladat klaszterváltozóit k = 7 és 9 között, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
+```{r echo = FALSE}
+validation2 <- read_delim("validationkmedoids.csv", delim=";")
+validation2$k  <- 7:9 
+
+knitr::kable(validation2, "simple")
+```
+
+**4.táblázat** Klaszterstruktúra validitás mérése ROPStattal, k-medoid klaszterelemzéshez
+
+A magyarázott variancia (EESS%) növekszik **k** értékének emelkedésével, de nem láthatunk kiugró javulást. 
+A Pontbiszeriális mutatók értéke kedvezőtlen, k=7 esetén még az elfogadható 0.3 szint alatt, de azt nagyon megközelítő értéket látunk.
+A módosított Xien Beni mutatók nem mutatnak jó illeszkedést.
+A Silhouette index a k=7 esetén jelzi a legjobb illeszkedést 0.583 értékkel.
+A CLdelta k=8 esetén a legjobb a három struktúra közül, elfogadható szinten (0.823), mögötte a k=7 struktúra áll. 
+A HCÁtlag természetszerűleg csökken  **k** emelkedésével
+A GDI24 index mindegyik megoldás esetén kedvezőtlen struktúrát jelez. 
+Felvethető a medoidok érvényességének alacsony szintje az adott adatokon.
+
+Mindezek alapján a k=7 struktúra tűnik a legjobbnak a háromból.
+
+```{r echo=FALSE, fig.width=15, fig.height=10}
+plot_data <- readRDS("plot_data.RDS")
+plot_data_medoid <- readRDS("plot_data_medoid.RDS")
+clustering_plot(plot_data=plot_data, plot_data_medoid=plot_data_medoid, autotune=FALSE)
+
+```
+
+**5. ábra** A k-medoid módszerrel képzett klaszterek eloszlásának és medoidjainak vizuális áttekintése
+
+\newpage
+## Függelék
+
+A *clustering_plot* függvény áttekintése.
+A függvény alapesetben egy meglévő skálázott adattáblával dolgozik (*dataset* paraméter).
+A *method* paraméterrel jelenleg a *kmeans* vagy a *pam* függvényeket tudja alkalmazni, **k** adott értékeire, melyeket a *k_range* paraméterrel tudunk szabályozni.
+Az *autotune* opció *TRUE* esetén a függvény a **clusterCrit** szerinti, a *criteria_list* paraméterben megadott adekvációs mutatók mentén tesztelést végez *k* értékei mentén, és többségi szavazás révén kiválasztja a (fontos!) mennyiségi szempontból legjobbnak tűnő *k*-t. Tehát csupán azt veszi figyelembe, *k* mely értéke kapta a legtöbb szavazatot a *bestCriterion* függvénytől.
+
+Második esetben, ha már rendelkezünk képzett klaszterstruktúrával, a *plot_data* paraméterrel tudjuk azt a függvénynek, mint inputot megadni.
+
+*autotune* helyett előre rögzített *k*-t a *selected_k* paraméterrel tudunk megadni.
+
+```{r echo=TRUE}
+clustering_plot <- function(dataset, method = "pam", Nvar = 3, 
+                            k_range = 7:9, autotune = TRUE, 
+                            selected_k = 7, plot_data = NA, 
+                            plot_data_medoid = NA, 
+                            criteria_list = "all", ...) {
+  library(clusterCrit)
+  if (is.na(plot_data) || is.na(plot_data_medoid)) {
+    medoids <- tibble()
+    memberships <- tibble()
+    criteria <- tibble()
+
+    for (k in k_range) {
+      set.seed(2324234)
+      if (method == "pam") {
+        medoid_fit <- pam(dataset, k = k, metric = "euclidean")
+        medoid <- tibble(data.frame(medoid_fit$medoids))
+        members <- medoid_fit$clustering
+        medoid$HC <- hc(dataset, membership = members, max_k = k)
+        membership <- tibble(data.frame(c = members), k = k)
+      } else if (method == "kmeans") {
+        medoid_fit <- kmeans(dataset, centers = k, iter.max = 20, nstart = 5, 
+                             algorithm = "MacQueen")
+        members <- medoid_fit$cluster
+        medoid <- tibble(data.frame(medoid_fit$centers))
+        medoid$HC <- hc(dataset, membership = members, max_k = k)
+        membership <- tibble(data.frame(c = members), k = k)
+      }
+      actual_criteria <- tibble(data.frame(intCriteria(dataset, members, criteria_list)))
+      actual_criteria$k <- k
+      criteria <- bind_rows(criteria, actual_criteria)
+      medoid$Klaszter <- paste0("KL", 1:k)
+      medoid$k <- k
+      medoid$type <- "stand"
+      medoids <- bind_rows(medoids, medoid)
+      memberships <- bind_rows(memberships, membership)
+    }
+    HCs <- medoids %>%
+      dplyr::select(k, HC) %>%
+      unique()
+
+
+    if (autotune) {
+      criteria <- filter_out_nan(criteria)
+      votes <- tibble(k = criteria$k, votes = 0)
+      for (qc in colnames(criteria)[-ncol(criteria)]) {
+        actual_qc <- unname(unlist(criteria[qc]))
+        best_qc <- bestCriterion(actual_qc, qc)
+        votes[best_qc, 2] <- votes[best_qc, 2][[1]] + 1
+      }
+      selected_k <- votes[votes$votes == max(votes$votes, na.rm = TRUE), ]$k
+    }
+
+    varnames <- expand.grid(names(medoids)[1:Nvar], names(medoids)[1:Nvar]) %>% filter(Var1 != Var2)
+    medoid_plot_data <- medoids %>%
+      filter(k %in% selected_k) %>%
+      mutate(c = as.numeric(str_sub(Klaszter, 3, 3)))
+    selected_members <- memberships %>% filter(k %in% selected_k)
+    plot_data <- tibble(data.frame(dataset))
+    plot_data_prep <- bind_cols(plot_data, selected_members)
+
+    plot_data <- tibble()
+    for (i in 1:nrow(varnames)) {
+      actual_pair <- as.character(unname(unlist(varnames[i, ])))
+      actual_df <- tibble(
+        var1 = rep(actual_pair[1], nrow(plot_data_prep)),
+        var2 = rep(actual_pair[2], nrow(plot_data_prep)),
+        x = unname(unlist(plot_data_prep[, actual_pair[1]])),
+        y = unname(unlist(plot_data_prep[, actual_pair[2]])),
+        KL = plot_data_prep$c
+      )
+      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+      plot_data <- bind_rows(plot_data, actual_df)
+    }
+    plot_data_medoid <- tibble()
+    for (i in 1:nrow(varnames)) {
+      actual_pair <- as.character(unname(unlist(varnames[i, ])))
+      actual_df <- tibble(
+        var1 = rep(actual_pair[1], nrow(medoid_plot_data)),
+        var2 = rep(actual_pair[2], nrow(medoid_plot_data)),
+        x = unname(unlist(medoid_plot_data[, actual_pair[1]])),
+        y = unname(unlist(medoid_plot_data[, actual_pair[2]])),
+        KL = medoid_plot_data$c
+      )
+      colnames(actual_df) <- c("var1", "var2", "x", "y", "KL")
+      plot_data_medoid <- bind_rows(plot_data_medoid, actual_df)
+    }
+
+    plot_data <- plot_data %>%
+      mutate(KL = as.factor(KL))
+    plot_data_medoid <- plot_data_medoid %>%
+      mutate(KL = as.factor(KL))
+
+    # saveRDS(plot_data, "plot_data.RDS")
+    # saveRDS(plot_data_medoid, "plot_data.RDS")
+
+    # plot_data <- readRDS("plot_data.RDS")
+    # plot_data_medoid <- readRDS("plot_data_medoid.RDS")
+  }
+
+  CLplot <- ggplot() +
+    #  geom_point(data = plot_data, aes(x, y),color="black", size = 5) +
+    #  geom_point(data = plot_data, aes(x, y, color = KL), size = 4) +
+    geom_bin2d(data = plot_data, aes(x, y, fill = KL), alpha = 1 / 2, color = "grey50") +
+    geom_point(data = plot_data_medoid, aes(x, y), color = "black",
+               size = 8, shape = 18) +
+    geom_point(data = plot_data_medoid, aes(x, y, color = KL), 
+               size = 7, shape = 18) +
+    geom_text(data = plot_data_medoid, aes(x, y, label = KL), 
+              size = 3, shape = 18) +
+    facet_wrap(~var1 ~ var2, scales = "free") +
+    scale_color_manual(values = c("#CB960E", "#D6A904", 
+                                  "#F9D47E", "#987E53", "#92B7A8", "#184867", 
+                                  "white", "coral", "coral4")) +
+    scale_fill_manual(values = c("#CB960E", "#D6A904", "#F9D47E", 
+                                 "#987E53", "#92B7A8", "#184867", "white", 
+                                 "coral", "coral4")) +
+    labs(x = "", y = "") +
+    theme_light() +
+    theme(legend.position = "bottom")
+
+  if (exists("votes")) {
+    list(
+      "plot" = CLplot,
+      "votes" = votes,
+      "medoids" = medoids,
+      "homogenity" = HCs
+    )
+  } else {
+    CLplot
+  }
+}
+
+```
+
