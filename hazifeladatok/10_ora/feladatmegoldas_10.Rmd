@@ -127,7 +127,7 @@ BIC ábráimon a szövegdobozok az adott keveréktípus maximuális értékéné
 
 ```{r echo=FALSE, fig.width=7, fig.height=7}
 mkafit<-readRDS("output/G10fit.RDS")
-plot(mkafit, "classification", colors=get_color_scale(3))
+plot(mkafit, "classification", colors=get_color_scale(10))
 ```
 **7. ábra** A G=10 megoldás klasszifikációs ábrája
 
@@ -150,7 +150,7 @@ A BIC-értékben való csökkenés ellenére egy jobban értelmezhető, kevésb�
 
 ```{r echo=FALSE, fig.width=7, fig.height=4}
 mkafit<-readRDS("output/G10fit.RDS")
-plot(mkafit, "uncertainty", colors=get_color_scale(3))
+plot(mkafit, "uncertainty", colors=get_color_scale(10))
 plot(mkafit, "density")
 
 ```
