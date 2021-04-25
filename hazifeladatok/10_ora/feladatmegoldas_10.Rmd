@@ -190,7 +190,23 @@ A finomhangolással együtt azonban (alsó ábra) a VVI eloszlástípus mutat ke
 
 A VVI típus G=8 struktúra esetén tetőzik, így ezt fogadom el a legjobb megoldásnak, mely az alacsonyabb komponensszám miatt az értelmezhetőségben is kedvezőbb.
 
-
+\newpage
 ## 6. Mentsd el a legjobb BIC-megoldást, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Hasonlítsd össze a kapott értékeket a 8. óra 1. feladatában kapott QC-értékekkel!
+
+Az alábbi táblázatban mutatom be a validálás eredményét.
+
+A G=3, 9, 10 és 28 MKA konfigurációkat vetettem össze a korábbi k-középpontú elemzésekével, ahol k értéke 6, 7, 8 és 9  között mozgott.
+
+Jól láthatóan a G=3 megoldás, noha magyarázott varianciája 51.52%-os, mind  a PB, mind módosított Xie-Beni, mind a Solhouette mutatók, tekintetében egy a KKA-s elemzésekhez hasonlatos eredménnyel szolgált, noha átlagos homogenitása kedvezőtlenebb, GDI24 és CL mutatói is jobbnak mondhatóak mint a többi MKA megoldásé, és közelebb állnak az KKA-hoz.
+Emögött azt gondolom, hogy a jól elhatárolható három klaszter áll, alacsony átfedéssel.
+
+A G = 9, 10  MKA megoldások redundáns eloszláskomponens-szerkezete, a sok klaszterátfedés folytán egy a magyarázott varianciában alig jobb (54.99%-58.49%), és nagyon rossz szeparációs mutatókkal jellemezhető struktúrák. Hasonlóképpen, noha BIC-szempontból az exploratív elemzésnél kiemelkedő volt a G=28 megoldás, EESS%-a alig éri el a közepes KKA elemzésést, miközben minden egyéb QC-jában alul teljesít, talán CLdeltája kivétel egyedül.  
+
+```{r echo=FALSE}
+qcs <- read_delim("output/QC.txt", delim="\t")
+knitr::kable(qcs, "simple")
+```
+
+**1. táblázat** Adekvációs mutatók összevetése
 
 
