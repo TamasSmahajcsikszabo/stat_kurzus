@@ -44,6 +44,7 @@ saveRDS(mclust_fit30, "output/mclust_fit30.RDS")
 # mclust_fit30["ICL plot"]
 
 mclust_fit3 <- autocluster(dataset, method = "mclust", k_range = 3)
+# mclust_fit3["boundary plot"]
 saveRDS(mclust_fit3, "output/mclust_fit3.RDS")
 
 get_color_scale(3)

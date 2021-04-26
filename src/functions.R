@@ -1135,7 +1135,7 @@ MclustDR_plot <- function(DR_object, selected_k) {
 
   ggplot() +
     geom_raster(data = grid, aes(x, y, alpha = z)) +
-    geom_point(data = plot_data, aes(x, y, color = class), size = 3) +
+    geom_jitter(data = plot_data, aes(x, y, color = class), size = 3) +
     scale_color_manual(values = get_color_scale(selected_k)) +
     theme_light()
 }
@@ -1163,7 +1163,7 @@ BIC_plot <- function(MclustObject, k_range) {
   ggplot(bic_data) +
     geom_path(aes(k, val, group = var, color = var)) +
     geom_point(aes(k, val, group = var, color = var)) +
-    geom_label_repel(data = label_data, aes(k, val, fill = var, group = var, label = paste0(var, ": ", round(val, 2))), color = "black", alpha = 1 / 2, show.legend = FALSE) +
+    geom_label_repel(data = label_data, aes(k, val, fill = var, group = var, label = paste0(var, ": ", round(val, 2))), color = "black", alpha = 1 / 2, show.legend = FALSE, max.overlaps = 0) +
     theme_light() +
     scale_color_manual(values = get_color_scale(length(colnames(MclustObject["BIC"]$BIC)))) +
     scale_fill_manual(values = get_color_scale(length(colnames(MclustObject["BIC"]$BIC)))) +

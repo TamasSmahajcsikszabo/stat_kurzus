@@ -46,11 +46,11 @@ suppressMessages(library(mclust))
 ## 1. Végezz MKA-t a PTELJ, Pboldog, Pmagány input változókkal, outlier kiszűréssel! Melyik megoldás tűnik a legjobbnak a BIC-grafikon alapján?
 
 
-Az *mclust* programcsomag *Mclust()* függvényét használva, különböző **G** érték-konfigurációkat teszteltem a BIC legnagyobb értékét, de ugyanakkor a képződő struktúra értelmezhetőségét is szem előtt tartva. 
-3 és 30 között vizsgálódva elmondható, hogy alapvetően három olyan keverékeloszlás típus mutatkozott meg, melynél a Bayes-féle Információs Kritérium a legjobb értéket érte el. 
+Az *mclust* programcsomag *Mclust()* függvényét használva, különböző **G** érték-konfigurációkat teszteltem a BIC legnagyobb értékét, a képződő struktúra értelmezhetőségét is szem előtt tartva. 
+Első körben, 3 és 30 között vizsgálódva elmondható, hogy alapvetően három olyan keverékeloszlás típus mutatkozott meg, melynél a Bayes-féle Információs Kritérium a legjobb értéket érte el. 
 Ebben a nagy tartományban a G=28 esetben az EEV típus mutatta a lejobb BIC értéket, utána visszafelé haladva, a VEV áll G=24-nél, majd pedig a VEI típus illeszkedésénél  legjobb BIC G=15-nél.
 
-```{r echo=FALSE, fig.width=12, fig.height=7}
+```{r echo=FALSE, fig.width=11, fig.height=7}
 
 mka3fit <- readRDS("output/mclust_fit3.RDS")
 mka10fit <- readRDS("output/mclust_fit10.RDS")
@@ -62,7 +62,7 @@ mute(mka30fit["BIC plot"])
 
 Az alábbi ábrán az egyes keverék-komponensek sűrűségét, illetve box-whiskers eloszlásait látjuk.
 
-```{r echo=FALSE, fig.width=12, fig.height=7}
+```{r echo=FALSE, fig.width=11, fig.height=8}
 
 mute(mka30fit["density plot"])
 ```
@@ -72,7 +72,7 @@ mute(mka30fit["density plot"])
 Mindezeken túl azonban, az értelmezhetőség végett az elemzést a G=3 és G=10 tartományra is megismételtem.
 
 
-```{r echo=FALSE, fig.width=12, fig.height=7}
+```{r echo=FALSE, fig.width=11, fig.height=8}
 
 mute(mka10fit["BIC plot"])
 ```
@@ -83,7 +83,7 @@ Ezen elemzés nyomán azt látjuk, a VEV eloszlástípus bizonyul a legjobbnak, 
 
 Ha az keverékkomponensek sűrűségét tekintjük (alábbi, 4. ábra)
 
-```{r echo=FALSE, fig.width=12, fig.height=7}
+```{r echo=FALSE, fig.width=11, fig.height=7}
 
 mute(mka10fit["density plot"])
 ```
@@ -92,20 +92,22 @@ mute(mka10fit["density plot"])
 
 A keverékkomponensek sűrűsödés vizsgálata három jobban elkülönölő struktúrát jelez, így mindez felveti hipotézisként, vajon mennyire értelmezhetőbb egy G=3 struktúra az információveszteség ellenére a G=10-zel szemben. 
 
-```{r echo=FALSE, fig.width=8, fig.height=4}
+```{r echo=FALSE, fig.width=8, fig.height=4.5}
 
 mute(mka3fit["boundary plot"])
 ```
 
-```{r echo=FALSE, fig.width=8, fig.height=4}
+```{r echo=FALSE, fig.width=8, fig.height=4.5}
 
 mute(mka10fit["boundary plot"])
 
 ```
 
-**5.ábra** A G=3 és a G=10 struktúrák összevetése az adatok első két főkomponense mentén képzett két dimenziós síkban; a klaszterhatárok bizonytalanságát a háttér árnyalata (*z-paraméter*) jelzi.
+**5.ábra** A G=3 (felső ábra) és a G=10 (alsó ábra) struktúrák összevetése az adatok első két főkomponense mentén képzett két dimenziós síkban; a klaszterhatárok bizonytalanságát a háttér árnyalata (*z-paraméter*) jelzi.
 
 Noha értelmezhetőbb struktúrát kapunk G=3 értékkel, ez jelentősen rosszabb BIC struktúra mint a G=10.
+
+G = 10 esetén jelentős átfedés is megfigyelhető a eloszlás-komponensek között.
 
 \newpage
 
@@ -118,54 +120,68 @@ mute(mka10fit["BIC plot"])
 
 **6. ábra** MKA sűrűség és eloszlási eredmények G=10 között
 
-BIC ábráimon a szövegdobozok az adott keveréktípus maximuális értékénél állnak. Ennek értelmében G=10-nél a legjobbnak tűnő eloszlástípus a VEV, melynek BIC értéke -3183.38.
+BIC ábráimon a szövegdobozok az adott keveréktípus maximuális értékénél állnak, azaz G azon értékénél, melynél az adott típus BIC-értéke a legnagyobb szintet éri el az adott modellezési folyamat során.
+Ennek értelmében G=10-nél a legjobbnak tűnő eloszlástípus a VEV, melynek BIC értéke -3183.38.
 
 \newpage
 
 ## 3. Készítsd el az 1. feladat legjobb BIC megoldásának classification ábráját!
 
 
-```{r echo=FALSE, fig.width=7, fig.height=7}
+```{r echo=FALSE, fig.width=6, fig.height=6}
 mkafit<-readRDS("output/G10fit.RDS")
 plot(mkafit, "classification", colors=get_color_scale(10))
 ```
+
 **7. ábra** A G=10 megoldás klasszifikációs ábrája
 
-Jól látható három nagyobb klaszter elkülönülése, és több kisebb, részben átfedő struktúra is. Ez ismét felveti a kérdést, mennyiben értelmezhetőbb egy G=3 struktúra. Különösen a Boldogság és Magányosság szeleteiben láthatóak néhány személyt magukban foglaló apró klaszterek.
+Jól látható három nagyobb klaszter elkülönülése (például a Boldogság és a Magányosság szeletében), és több kisebb, részben átfedő struktúra is. 
+Ez ismét felveti a kérdést, mennyiben értelmezhetőbb egy G=3 struktúra. 
+Különösen a Boldogság és Magányosság szeleteiben láthatóak pusztán csak néhány esetet magukban foglaló apró klaszterek.
 
-\newpage
-```{r echo=FALSE, fig.width=7, fig.height=7}
+```{r echo=FALSE, fig.width=6, fig.height=6}
 mkafit<-readRDS("output/G3fit.RDS")
 plot(mkafit, "classification", colors=get_color_scale(3))
 ```
+
 **8. ábra** A G=3 megoldás klasszifikációs ábrája
 
-
 A BIC-értékben való csökkenés ellenére egy jobban értelmezhető, kevésbé átfedő, kevésbé redundáns megoldást kapunk.
-
-
+Ugyanakkor számos eset adott, melynél nem világos a besorolás.
 \newpage
 
 ## 4. Készítsd el az 1. feladat legjobb BIC megoldásának uncertainty és density ábráját!
 
-```{r echo=FALSE, fig.width=7, fig.height=4}
+```{r echo=FALSE, fig.width=6, fig.height=6}
 mkafit<-readRDS("output/G10fit.RDS")
 plot(mkafit, "uncertainty", colors=get_color_scale(10))
+
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=6}
+mkafit<-readRDS("output/G10fit.RDS")
 plot(mkafit, "density")
 
 ```
+
 **9. ábra** A G=10 megoldás "uncertainty"  és sűrűsödés ábrája
 
 
 G=10 esetében a klaszterek átfednek, több esetben is a klaszterbe tartozás bizonytalansága emelkedett.
+Különösen a Magányosság és a Teljesítmény változók szeletiben látunk nehezen értelmezhető, átfedő struktúrákat.
 
-```{r echo=FALSE, fig.width=7, fig.height=4}
+```{r echo=FALSE, fig.width=6, fig.height=6}
 mkafit<-readRDS("output/G3fit.RDS")
 plot(mkafit, "uncertainty", colors=get_color_scale(3))
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=6}
 plot(mkafit, "density")
 ```
+
 **10. ábra** A G=3 megoldás "uncertainty" és sűrűsödés ábrája
 
+Több esetben emelkedett besorolási bizonytalanság mutatkozik meg, de a struktúra értelmezhetőbb, világosabban elkülönülpő eloszláskomponenseket látok.
 
 \newpage
 
@@ -186,24 +202,24 @@ mute(iclFitPrior['ICL plot'])
 
 A *priorControl()* hangolási opció nélkül, a felső ábra szerint hasonlóképpen a VEV keveréktípus a legjobb az ICL információs kritérium szeriunt is, akár G=9, akár G=10 opciót tekintjük is.
 
-A finomhangolással együtt azonban (alsó ábra) a VVI eloszlástípus mutat kedvezőbb illeszkedést. Ezt úgy értelmezem, hogy méretükben, tengelyeik hosszában eltérő, de a főtengelyekkel és egymás tengelyirányultságában egyező eloszlásokat modellez a legjobb ICL-lel leírható modell.
+A finomhangolással együtt azonban (alsó ábra) a VVI eloszlástípus mutat kedvezőbb illeszkedést (G=8 beállítás mellett). 
+Ezt úgy értelmezem, hogy méretükben, tengelyeik hosszában eltérő, de a főtengelyekkel és egymás tengelyirányultságában egyező eloszlásokat modellez a legjobb ICL-lel leírható modell.
 
 A VVI típus G=8 struktúra esetén tetőzik, így ezt fogadom el a legjobb megoldásnak, mely az alacsonyabb komponensszám miatt az értelmezhetőségben is kedvezőbb.
 
-\newpage
 ## 6. Mentsd el a legjobb BIC-megoldást, tedd át ROPstatba és számítsd ki a Validálás modullal a főbb QC mutatókat! Hasonlítsd össze a kapott értékeket a 8. óra 1. feladatában kapott QC-értékekkel!
 
 Az alábbi táblázatban mutatom be a validálás eredményét.
 
 A G=3, 9, 10 és 28 MKA konfigurációkat vetettem össze a korábbi k-középpontú elemzésekével, ahol k értéke 6, 7, 8 és 9  között mozgott.
 
-Jól láthatóan a G=3 megoldás, noha magyarázott varianciája 51.52%-os, mind  a PB, mind módosított Xie-Beni, mind a Solhouette mutatók, tekintetében egy a KKA-s elemzésekhez hasonlatos eredménnyel szolgált, noha átlagos homogenitása kedvezőtlenebb, GDI24 és CL mutatói is jobbnak mondhatóak mint a többi MKA megoldásé, és közelebb állnak az KKA-hoz.
-Emögött azt gondolom, hogy a jól elhatárolható három klaszter áll, alacsony átfedéssel.
+Jól láthatóan a G=3 megoldás, noha magyarázott varianciája 51.52%-os, mind  a PB, mind ott Xie-Beni, mind a Solhouette mutatók, tekintetében egy a KKA-s elemzésekhez hasonlatos eredménnyel szolgált, noha átlagos homogenitása kedvezőtlenebb, GDI24 és CL mutatói is jobbnak mondhatóak mint a többi MKA megoldásé.
+Emögött azt gondolom, hogy a jól elhatárolható három eloszláskomponens áll, alacsony átfedéssel.
 
-A G = 9, 10  MKA megoldások redundáns eloszláskomponens-szerkezete, a sok klaszterátfedés folytán egy a magyarázott varianciában alig jobb (54.99%-58.49%), és nagyon rossz szeparációs mutatókkal jellemezhető struktúrák. Hasonlóképpen, noha BIC-szempontból az exploratív elemzésnél kiemelkedő volt a G=28 megoldás, EESS%-a alig éri el a közepes KKA elemzésést, miközben minden egyéb QC-jában alul teljesít, talán CLdeltája kivétel egyedül.  
+A G = 9, 10  MKA megoldások redundáns eloszláskomponens-szerkezete, a sok klaszterátfedés folytán egy a magyarázott varianciában alig jobb (54.99%-58.49%), és nagyon rossz szeparációs mutatókkal jellemezhető struktúrák. Hasonlóképpen, noha BIC-szempontból az exploratív elemzésnél kiemelkedő volt a G=28 megoldás, EESS%-a alig éri el a közepes KKA elemzésést, miközben minden egyéb QC-jában alul teljesít, talán CLdeltája kivétel egyedül.
 
 ```{r echo=FALSE}
-qcs <- read_delim("output/QC.txt", delim="\t")
+qcs <- read_delim("output/QC.txt", delim="\t") %>% arrange(Type, `G/K`)
 knitr::kable(qcs, "simple")
 ```
 
