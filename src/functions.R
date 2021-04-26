@@ -1448,7 +1448,7 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
     list(
       "mclust fit" = mka_fit,
       "icl fit" = icl_fit,
-      "hard membership" <- memberships,
+      "hard membership" = memberships,
       "boundary plot" = DR_plot,
       "BIC plot" = bic_plot,
       "ICL plot" = icl_plot,
