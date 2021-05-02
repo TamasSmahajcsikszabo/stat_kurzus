@@ -1,0 +1,13 @@
+Scenario;EESS%;Pontbisz;XBmod;SilCoef;HCatlag;CLdelta;GDI24;Type;Best
+KClus6;0.24;-0.1;0.04;0.05;0.23;-0.14;-0.29;permutation;
+KClus7;0.23;-0.08;0.18;0.09;0.23;-0.14;-0.11;permutation;*
+KClus8;0.23;-0.06;0.12;0.06;0.23;-0.14;-0.06;permutation;
+KClus9;0.22;-0.04;0.1;0.06;0.22;-0.14;-0.12;permutation;
+KClus10;0.21;-0.05;0.13;0.06;0.21;-0.15;-0.07;permutation;
+BIC3;0.12;-0.14;-0.08;-0.08;0.12;-0.16;-0.43;permutation;
+KClus6;0.39;0.05;-0.15;0.24;0.39;0;-0.64;normal control;
+KClus7;0.4;0.05;0.03;0.24;0.4;-0.03;-0.52;normal control;*
+KClus8;0.41;0.03;-0.13;0.19;0.4;-0.06;-0.55;normal control;
+KClus9;0.41;0.03;-0.11;0.19;0.4;-0.08;-0.58;normal control;
+KClus10;0.41;0.02;-0.07;0.19;0.41;-0.1;-0.56;normal control;
+BIC3;0.21;0.04;0.14;0.18;0.21;0.07;-0.46;normal control;

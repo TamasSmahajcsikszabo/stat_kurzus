@@ -8,6 +8,7 @@ library(ggrepel)
 # library(concaveman)
 library(ggforce)
 library(forcats)
+library(roxygen2)
 # sourceCpp("src/functions.cpp")
 suppressMessages(library(readr))
 suppressMessages(library(ggrepel))
@@ -1087,7 +1088,7 @@ filter_out_nan <- function(df) {
 get_color_scale <- function(k) {
   if (k >= 7) {
     colour_scale_1 <- scales::seq_gradient_pal("#92B7A8", "#D6A904")(seq(0, 1, length.out = k / 2))
-    colour_scale_2 <- scales::seq_gradient_pal("#D6A904", "#184867")(seq(0, 1, length.out = k / 2))
+    colour_scale_2 <- scales::seq_gradient_pal("#F0B375", "#184867")(seq(0, 1, length.out = k / 2))
     c(colour_scale_1, colour_scale_2)
   } else {
     c("#184867", "#987E52", "#CB690E", "#7D3DD5", "#F0B375", "#A69383")
@@ -1294,6 +1295,8 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
     dataset <- scale(dataset)
   }
   library(clusterCrit)
+  library(cluster)
+  library(mclust)
   if (method %in% c("pam", "kmeans")) {
     if (is.na(plot_data) || is.na(plot_data_medoid)) {
       medoids <- tibble()
@@ -1466,3 +1469,60 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
 # mDR <- autocluster(dataset, k_range = 3:20, method = "mclust", PCA = FALSE)
 # mDR["BIC plot"]
 # mDR["best k"]
+
+
+### post hoc analysis
+# membership1 <- kmeans(scale(dataset), center = 3)$cluster
+# membership2 <- pam(scale(dataset), k = 3)$clustering
+# test_data <- tibble(km = membership1, pam = membership2)
+
+
+#' @param memberships is a dataframe of cluster memberships, at least two columns corresponsing to two set of hard cluster memberships
+#' @param method is string of name for a similarity method, by default Jaccard
+clusterSimilarity <- function(memberships, method = "Jaccard") {
+  # find clustering pairs
+
+  # estimate jaccard matrix for a given pair of clustering
+
+  # collect results
+}
+
+bivariate_density_plot <- function(dataset, title = "", xlab = "", ylabl = "", ...) {
+  names(dataset) <- c("x", "y")
+  ggplot(dataset, aes(x, y)) +
+    geom_jitter(color = "#e34234", alpha = 1 / 3) +
+    geom_point(color = "#e34234") +
+    geom_density2d(linetype = "dashed", size = 0.5, color = "#49579F") +
+    labs(
+      title = title,
+      xlab = xlab,
+      ylab = ylab
+    ) +
+    theme_light()
+}
+
+densityMatrix <- function(dataset, ...) {
+  plot_data <- tibble()
+  for (name in names(dataset)) {
+    for (name2 in names(dataset)) {
+      actual_data <- tibble(x = unname(unlist(dataset[name])), y = unname(unlist(dataset[name2])), var1 = name, var2 = name2)
+      colnames(actual_data) <- c("x", "y", "var1", "var2")
+      plot_data <- bind_rows(plot_data, actual_data)
+    }
+  }
+
+  ggplot(plot_data) +
+    facet_wrap(~var1 ~ var2, scales = "free") +
+    geom_density_2d(data = plot_data %>% filter(var1 != var2), aes(x, y), color = "#49579F", contour = TRUE) +
+    geom_point(data = plot_data %>% filter(var1 != var2), aes(x, y), color = "grey30", alpha = 1 / 5) +
+    geom_histogram(data = plot_data %>% filter(var1 == var2), aes(x), fill = "white", color = "black") +
+    geom_label(data = plot_data %>% filter(var1 == var2) %>% unique(), aes(x = -Inf, y = Inf, label = var1), color = "black", hjust = -0.5, vjust = 1.5, fill = "white") +
+    theme_light() +
+    theme(
+      axis.title = element_blank(),
+      strip.background = element_blank(),
+      strip.text = element_blank()
+    )
+}
+
+# densityMatrix(dataset)

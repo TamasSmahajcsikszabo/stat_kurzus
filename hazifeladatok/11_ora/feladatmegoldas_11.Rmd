@@ -1,0 +1,171 @@
+---
+title: "Házi feladatok megoldása 11."
+subtitle: "Klasztermegoldás validálása a MORI együtthatóval"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
+suppressMessages(patterns<- read_delim("output/patterns.csv", delim=";"))
+mute(suppressMessages(Sys.setlocale("LC_ALL", "C")))
+suppressMessages(mori<- read_delim("output/mori.csv", delim=";"))
+
+```
+
+## 1. A 8. óra 1. feladatában elmentett klaszterváltozókkal végezz MORI-elemzéseket a random permutáció módszerével, rep = 25 ismétlésszámmal! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
+A random permutáció módszerével, 25 független ismétléssel végzett MORI-elemzés eredményéről az alábbi táblázat tájékoztat.
+
+```{r echo=FALSE}
+table1<-mori[mori$Type == "permutation",-c(9,10)]
+table1 <- table1[table1$Scenario != "BIC3",]
+knitr::kable(table1, "simple")
+```
+
+Az egyes MORI-mutatók alapján a k=7 megoldás tűnik megfelelőbbnek, mert PB és a módosított Xie-Beni mutató MORI-indexe nyomán random permutáció mellett jobb szeparációt jelent a többi struktúránál.
+
+\newpage
+## 2. A 8. óra 1. feladatában elmentett klaszterváltozókkal végezz MORI-elemzéseket a korreláló random normális kontroll módszerével, rep = 25 ismétlésszámmal! Melyik klaszterszám megoldása tűnik a legjobbnak?
+
+A kontrolláló random normális kontrollhoz varimax rotációval készült faktorsúly-mátrixot használtam. A súlyok értékeit az alábbi táblázat összegzi.
+
+
+```{r echo=FALSE}
+weights <- read.table("output/pca_weights.txt")
+colnames(weights) <- paste0("PC", 1:3)
+rownames(weights) <- c("PTelj", "PBoldog", "Pmagany")
+knitr::kable(weights, "simple")
+
+```
+
+A faktorképzés, a rotáció menetét, és az outputok ROPSTat számára értelmezhető "floadingbetolt.txt" fájlba rendezését az alábbi script segítségével végeztem el.
+
+```{r echo=TRUE, eval=FALSE}
+library(vegan)
+library(pracma)
+library(tidyverse)
+
+dataset <- read_csv("../../data/data.csv")
+dataset <- dataset[c("PTelj", "PBoldog", "PMagány")]
+
+pca <- rda(dataset, scale = TRUE)
+loading <- scores(pca, choices = c(1, 2, 3))$species
+rotated_loading <- varimax(loading)$loadings
+iloading <- t(pinv(rotated_loading))
+scores <- scale(dataset) %*% iloading
+
+
+weight_matrix <- cor(scale(dataset), scores)
+
+
+write.table(weight_matrix, "output/pca_weights.txt", row.names = FALSE, col.names = FALSE)
+weights <- read.table("output/pca_weights.txt")
+
+weight_content <- ""
+for (r in 1:3) {
+  actual_row <- paste0(unname(unlist(weights[r, ])), collapse = "\t")
+  weight_content <- paste0(weight_content, actual_row, "\n")
+}
+
+line1 <- "3 (Number of variables)\n"
+line2 <- "PTelj\n"
+line3 <- "PBoldog\n"
+line4 <- "PMagány\n"
+
+file_content <- paste0(line1, line2, line3, line4, weight_content)
+writeLines(file_content, con = "output/floadingbetolt.txt")
+```
+
+A MORI-értékeket az alábbi táblázatban foglaltam össze.
+
+```{r echo=FALSE}
+table2<-mori[mori$Type == "normal control",-c(9,10)]
+table2 <- table2[table2$Scenario != "BIC3",]
+knitr::kable(table2, "simple")
+```
+
+Az egyes MORI-mutatók alapján a k=7 megoldás tűnik megfelelőbbnek, különösen a szeparációs mutatók, így XBmode alapján.
+
+
+A k=7 struktúra bemutatására az alábbi ábrát készítettem, a standardizált klaszterátlagok és a klaszterenkénti homogenitási együtthatók segítségével.
+
+
+```{r echo=FALSE, fig.width=9, fig.height=4}
+patterns1 <- patterns %>% filter(k==7, type == "stand")
+patterns1<- patterns1 %>% 
+    pivot_longer(2:4, names_to = "var", values_to = "val") %>%
+    filter(type == "stand")
+cluster_plot(patterns1, replace=FALSE, type="stand", caption="", xlab="Valtozok", ylab="Standardizalt Atlagok") 
+```
+
+KL6 kivételével viszonylag jó homogenitással jellemezhető struktúrát kapunk, melynél adott egy boldog, jól teljesítő, de magányos csoport (KL1), egy hasonlóképp boldog, jobban teljesítő és kevésbé magányos klaszter (KL2), egy magányos, boldogtalan rosszul teljesítő (KL3), melynek hasonló mintázatot mutató, de extrémebb rokona a KL6. A KL4 olyanokat sűrít, akik enyhén boldogok, kevésbé magányosak, de nem is teljesítenek jól.
+
+A KL5 a KL1 ellentételezése (minden mutatóban alacsony értéket mutat); a KL7 pedig a KL3 szélsőségesebb értékmintázatot mutató testvére.
+
+\newpage
+
+## 3. A 10. óra 6. feladatában elmentett klaszterváltozóval végezz MORI-elemzést a  random permutáció módszerével, rep = 25 ismétlésszámmal! Vesd össze a kapott eredményt az 1. feladatban kapottal!
+
+A 25-szörös permutációval számolt MORI-értékeket az alábbi táblázat közli.
+
+```{r echo=FALSE}
+table3<-mori[mori$Type == "permutation",-c(9,10)]
+table3 <- table3[table3$Scenario == "BIC3",]
+knitr::kable(table3, "simple")
+```
+
+A modell-alapú klaszterezés különböző struktúrái (G=3, 7, 8, 10) közül ezen G=3 struktúra szolgáltatta a legjobb belső validitási mutatókat, melyeket akkor úgy interpretáltam, megközelíti egy HKA eredményét.
+
+A három klaszteres struktúra ugyanakkor permutációval becsült MORI-jai alapján kedvezőtlen szeparációval bír (PB, XBmod, Silhouette együtthatók), viszonylag jó HCÁtlaggal bír (0.21).
+
+## 4. A 10. óra 6. feladatában elmentett klaszterváltozóval végezz MORI-elemzést a korreláló random normális kontroll módszerével, rep = 25 ismétlésszámmal! Vesd össze a kapott eredményt a 2. feladatban kapottal!
+
+Random, kontrolláló normális kontrollal végzett külső validitás becslés alapján azt látjuk, elfogadható EESS%, XBmod, Solhouette, HCÁtlag, és alacsony CLdelta MORI-értékeket kapunk.
+
+
+```{r echo=FALSE}
+table4<-mori[mori$Type == "normal control",-c(9,10)]
+table4 <- table4[table4$Scenario == "BIC3",]
+knitr::kable(table4, "simple")
+```
+
+```{r echo=FALSE, fig.width=9, fig.height=4}
+patterns2 <- patterns %>% filter(k==3, type == "stand")
+patterns2<- patterns2 %>% 
+    pivot_longer(2:4, names_to = "var", values_to = "val") %>%
+    filter(type == "stand")
+cluster_plot(patterns2, replace=FALSE, type="stand", caption="", xlab="Valtozok", ylab="Standardizalt Atlagok") 
+```
+
+A tényleges klaszterstruktúra tekintetében elmondható, hogy értlemezhetőbb, kevésbé redundáns (minden fent közölt, értelmezhető mintázat megjelenik e háromban), mint a fenti k=7, ahol összesen két olyan klaszterpár is volt, mely teljesen azonos értékmintázatot mutatott a standard átlagokban, mindössze az értékek maximális és minimális értékeiben mutattak eltérést.
