@@ -1,0 +1,212 @@
+---
+title: "Házi feladatok megoldása 12."
+subtitle: "Különböző klasszifikációk összehasonlítása Centroid és Exacon módszerrel ROPstatban"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
+suppressMessages(table1 <- read_delim("output/12_1.csv", delim=";"))
+suppressMessages(table2_kka_centroids <- read_delim("output/12_2.csv", delim=";"))
+suppressMessages(table2_kka_mka_centroids <- read_delim("output/12_2_2.csv", delim=";"))
+suppressMessages(table2_kka_mka_pairs <- read_delim("output/12_2_3.csv", delim=";"))
+suppressMessages(table2_kka_mka_frequencies <- read_delim("output/12_2_4.csv", delim=";"))
+suppressMessages(table3_kka_mka_rate <- read_delim("output/12_3_1.csv", delim=";"))
+suppressMessages(table3_kka_mka_exacon <- read_delim("output/12_3_2.csv", delim=";"))
+suppressMessages(table3_kka_mka_tpyes <- read_delim("output/12_3_3.csv", delim=";"))
+suppressMessages(table4_gender_desc <- read_delim("output/12_4_1.csv", delim=";"))
+suppressMessages(table4_gender_comparison <- read_delim("output/12_4_2.csv", delim=";"))
+suppressMessages(table4_gender_comparison2 <- read_delim("output/12_4_3.csv", delim=";"))
+suppressMessages(table5 <- read_delim("output/12_5.csv", delim=";"))
+
+```
+
+## 1. A 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozójával végezz centroid-elemzést ROPstatban! Mely klaszterek vannak a legközelebb egymáshoz? Találsz itt összevonandó klasztereket?
+
+A Bayes-féle információs kritérium nyomán G=3 és 10 között a G=3 megoldást fogadtam el az eredeti elemzés során. 
+
+```{r echo=FALSE}
+knitr::kable(table1, "simple")
+```
+
+**1. táblázat:** A G=3 mclust() elemzés nyomán képzett klaszterek centroidjainak páronkénti távolságai.
+
+Az ezen megoldás révén képzett klaszterek centroidjai kellőképp távol esnek (lásd a fenti táblázatban), így a háromklaszteres megoldás során nem szükséges további klaszterösszevonás.
+
+
+## 2. Hasonlítsd össze a 8. óra 1. feladatának legjobb k-közép megoldását és a 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozóját a ROPstat centroid-elemzésével! Hány klaszterpár tekinthető igen közelinek?
+
+```{r echo=FALSE}
+knitr::kable(table2_kka_centroids, "simple")
+```
+
+**2. táblázat:** A k=7 k-középpontú elemzés klasztereinek centroidjai közti páronkénti távolságok
+
+A lenti, 3. táblázat alapján, a két megoldás klasztercentroidjainak távolságait tekintve, az MKA 1., 2. és 3. klasztereinek távolságai alacsonyak (<0.5) a KKA hasonló 1., 2. és 3. kódolású centroidjaival (rendre 0.04, 0.04 és 0.27).
+Néhány további hasonlóan közeli centroidpár jelenik meg: az MKA1 0.48 távolságot mutat a KKA3 klaszterrel, hasonlóképp az MKA2 és a KKA4 klaszterek közötti távolság is alacsony (0.23).
+Az MKA3 klaszter a KKA4-től 0.39, a KKA7-től pedig 0.48 távolságra fekszik.
+
+```{r echo=FALSE}
+knitr::kable(table2_kka_mka_centroids, "simple")
+```
+
+**3. táblázat:** A k=7 k-középpontú, és a G=3 modell alapú klaszterelemzések klasztereinek centroidjai közti páronkénti távolságok
+
+```{r echo=FALSE}
+knitr::kable(table2_kka_mka_pairs, "simple")
+```
+
+**4. táblázat:** A k=7 k-középpontú, és a G=3 modell alapú klaszterelemzések klasztercentroidjainak páronkénti távolságai
+
+Az alábbi táblázatban megjelenő gyakoriságok alapján elmondható, hogy a KKA elemzés 5., 6. és 7. klaszterei alkotta almintát az MKA3 klaszter foglalja magában.
+A két elemzés adta struktúra jelentősen eltér: Köztük egyedük a 2. kódjelű klaszterek közös metszete képvisel egy nagyobb sűrűsödést (N=144).
+
+
+
+```{r echo=FALSE}
+knitr::kable(table2_kka_mka_frequencies, "simple")
+```
+
+**5. táblázat:** A k=7 k-középpontú, és a G=3 modell alapú klaszterelemzések klasztereinek gyakorisági megoszlása
+
+## 3. Hasonlítsd össze a 8. óra 1. feladatának legjobb k-közép megoldását és a 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozóját a ROPstat EXACON modulja segítségével! Mennyire tekinthető hasonlónak a két megoldás a Jaccard és a korrigált Rand index szerint?
+
+A 0.20-nál nagyobb egyezési arányokról az alábbi táblázat tájékoztat.
+
+```{r echo=FALSE}
+knitr::kable(table3_kka_mka_rate, "simple")
+```
+
+**6. táblázat:** A k=7 k-középpontú, és a G=3 modell alapú megoldások klaszterei közti egyezési arányok
+
+A két megoldás 1., 2. és 3. kódjelű klaszterei közötti egyezési arányok nagyobbak (0.82, 0.8 és a hármas klaszterek között 0.41).
+Korábbi, a centroidok távolsági elemzésénél már megfigyelt mintázat (az MKA3 klaszter sűríti magába a KKA 5., 6. és 7. klasztereit) itt is megjelenik, 0.58-0.6 egyezési arányokkal.
+
+
+```{r echo=FALSE}
+knitr::kable(table3_kka_mka_tpyes, "simple")
+```
+
+**7. táblázat:** A k=7 k-középpontú, és a G=3 modell alapú megoldások klaszterei szerinti konfigurációk
+
+
+A Jaccard-index (0.379) és a korrigált Rand-index (0.394) is a két struktúra jelentős eltérését jelzi. További eredményeket közöl a **Függelék** táblázata az ExaCon eredményt illetően.
+
+## 4. Hasonlítsd össze a férfiak és a nők almintáját a 8. óra 1. feladatának legjobb k-közép megoldása segítségével! Melyik mintázatú klaszterben a legkisebb, illetve legnagyobb a nők aránya? Tudnál erre szakmai magyarázatot adni?
+
+```{r echo=FALSE}
+knitr::kable(table4_gender_desc, "simple")
+```
+
+**8. táblázat:** Nemek szerinti leíró statisztikák a három változóra nézve
+
+```{r echo=FALSE}
+knitr::kable(table4_gender_comparison, "simple")
+```
+
+**9. táblázat:** A k=7 k-középpontú elemzés révén kapott 7 klaszter centroidjainak páronkénti távolsága nemi bontásban ("male" és "female" kódú sorok, illetve nemek közti öszevetésben a "male to female" kódolással)
+
+Mint a fenti, 9. táblázatból látható, az azonos kódolású klaszterek páronkénti távolságai nagyfokú közelséget jeleznek (egyedül az 5-5. klaszterek között emelkedik 0.07 szintre).
+
+A KKA 7 klaszteres megoldásának nemi arányairól az alábbi ábra tájékoztat.
+
+```{r echo=FALSE, fig.width=7, fig.height=3}
+total <- table5 %>%
+    group_by(KKA7) %>%
+    summarise(total = n()) %>%
+    ungroup()
+gender <- table5 %>%
+    group_by(KKA7, Neme) %>%
+    summarise(n = n()) %>%
+    left_join(total) %>%
+    mutate(rate = n /total) %>%
+    ungroup()
+gender %>%
+    mutate(Neme= if_else(Neme == 1, "F", "N")) %>%
+    ggplot(aes(KKA7, rate, group=Neme)) +
+    geom_col(aes(fill=Neme), position="dodge", color = "black") +
+    scale_fill_manual(values = c("white", "grey70")) +
+    theme_light() +
+    scale_x_continuous(breaks = 1:7) +
+    ylim(0,1) +
+    labs(
+         x = "KKA7 klaszterek",
+         y = "Nemi aranyok"
+    )
+```
+
+Nemek vonatkozásában a függetlenség esetén elvárt gyakoriságokhoz képest a KKA tekintetében nem mutatkoztak szignifikáns eltérések.
+
+\newpage
+## 5. Melyik mintázatú klaszterben a legkisebb, illetve legnagyobb a 60 év felettiek aránya? Tudnál erre szakmai magyarázatot adni?
+
+```{r echo=FALSE}
+
+kka<- table5 %>% 
+    mutate(age60 = if_else(Age >= 60, 1, 0)) %>%
+    group_by(KKA7) %>%
+    summarise(n = round(sum(age60)/n(), 3))
+
+
+mka <- table5 %>% 
+    mutate(age60 = if_else(Age >= 60, 1, 0)) %>%
+    group_by(MKA3) %>%
+    summarise(n = round(sum(age60)/n(), 3))
+
+```
+
+A k-középpontú elemzéssel nyert klaszterek közül a 4. és 5. klasztereknél a legmagasabb a 60 év felettiek aránya (34%), legalacsonyabb a 6. klaszternél (16%).
+Egyetlen megfigyelt cellagyakoriság sem különbözött szignifikánsan a függetlenség esetén elvárttól.
+
+```{r echo=FALSE}
+knitr::kable(kka, "simple")
+```
+
+**10. táblázat:** A k=7 k-középpontú elemzés révén kapott 7 klaszter szerinti életkori arány (60 év felettiek aránya)
+
+
+```{r echo=FALSE}
+knitr::kable(mka, "simple")
+```
+
+**11. táblázat:** A G=3 modell alapú elemzés révén kapott 3 klaszter szerinti életkori arány (60 év felettiek aránya)
+
+\newpage
+## Függelék
+
+```{r echo=FALSE}
+knitr::kable(table3_kka_mka_exacon, "simple")
+```
+
+**12. táblázat:** Khi-négyzet próba eredmények az MKA és KKA klaszterbesorolásai szerint

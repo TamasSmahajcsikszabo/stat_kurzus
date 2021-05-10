@@ -1,0 +1,55 @@
+---
+title: "Házi feladatok megoldása 12."
+subtitle: "Különböző klasszifikációk összehasonlítása Centroid és Exacon módszerrel ROPstatban"
+csl: apa7.csl
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Smahajcsik-Szabó Tamás, M9IJYM
+
+
+
+```{r echo=FALSE}
+# importing C++ code, R libraries and data
+options(warn=-1)
+#setwd('/home/tamas/repos/stat_kurzus/hazifeladatok/7_ora')
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+suppressMessages(source("../../src/functions.R"))
+#suppressMessages(source("../../src/mad.R"))
+suppressMessages(library(readr))
+suppressMessages(library(ggrepel))
+suppressMessages(library(tidyverse))
+suppressMessages(library(effsize))
+suppressMessages(library(AICcmodavg))
+suppressMessages(library(broom))
+suppressMessages(library(confreq))
+suppressMessages(library(stringr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(caret))
+suppressMessages(library(tidyverse))
+suppressMessages(library(dendextend))
+suppressMessages(library(ggdendro))
+suppressMessages(library(stats))
+suppressMessages(library(ClusterR))
+suppressMessages(library(ggpubr))
+suppressMessages(library(cluster))
+suppressMessages(patterns<- read_delim("output/patterns.csv", delim=";"))
+mute(suppressMessages(Sys.setlocale("LC_ALL", "C")))
+suppressMessages(mori<- read_delim("output/mori.csv", delim=";"))
+
+```
+
+## 1. A 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozójával végezz centroid-elemzést ROPstatban! Mely klaszterek vannak a legközelebb egymáshoz? Találsz itt összevonandó klasztereket?
+
+# # 2. Hasonlítsd össze a 8. óra 1. feladatának legjobb k-közép megoldását és a 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozóját a ROPstat centroid-elemzésével! Hány klaszterpár tekinthető igen közelinek?
+
+## 3. Hasonlítsd össze a 8. óra 1. feladatának legjobb k-közép megoldását és a 10. óra 6. feladatában elmentett BIC-megoldás klaszterváltozóját a ROPstat EXACON modulja segítségével! Mennyire tekinthető hasonlónak a két megoldás a Jaccard és a korrigált Rand index szerint?
+
+## 4. Hasonlítsd össze a férfiak és a nők almintáját a 8. óra 1. feladatának legjobb k-közép megoldása segítségével! Melyik mintázatú klaszterben a legkisebb, illetve legnagyobb a nők aránya? Tudnál erre szakmai magyarázatot adni?
+
+## 5. Melyik mintázatú klaszterben a legkisebb, illetve legnagyobb a 60 év felettiek aránya? Tudnál erre szakmai magyarázatot adni?
+
