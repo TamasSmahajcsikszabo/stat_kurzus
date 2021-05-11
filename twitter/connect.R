@@ -4,6 +4,7 @@ library(tidyr)
 library(stringr)
 library(dplyr)
 library(purrr)
+library(readr)
 source("functions.R")
 
 appname <- "sw8"
@@ -32,6 +33,15 @@ dicetower <- c("dicetower")
 
 ####################### search ################################
 all_data <- get_lines("data/")
+results <- get_lines(path = "liwc/", token = "LIWC")
+colnames(results)[1:2] <- c("status_id", "text")
+results <- results %>% unique()
+prepared_data <- all_data %>%
+  left_join(results, by = c("status_id")) %>%
+  filter(!is.na(Analytic))
+saveRDS(prepared_data, "prepared_data.RDS")
+
+
 top_users <- all_data %>%
   group_by(screen_name) %>%
   summarise(n = n()) %>%
@@ -43,11 +53,16 @@ top_users <- all_data %>%
 
 
 
-all_data %>%
+users <- all_data %>%
   group_by(screen_name) %>%
   summarise(n = n()) %>%
   arrange(n) %>%
-  filter(n >= 10)
+  filter(n >= 3)
+
+dataset <- all_data %>%
+  filter(screen_name %in% users$screen_name)
+
+write_delim(all_data[c("status_id", "text")], "dataset.csv", delim = "\t")
 
 # scan_twitter(covid, path = '../../stat_kurzus/twitter/data/')
 # scan_twitter(boardgames, path = '../../stat_kurzus/twitter/data/')
