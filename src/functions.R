@@ -1290,7 +1290,7 @@ Mclustdensity_plot <- function(object, dimens = 1, ngrid = 100, G = 10, membersh
 # k_range <- 7
 # method="pam"
 
-autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = NA, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, scaling = TRUE, prior = FALSE, ...) {
+autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotune = TRUE, selected_k = NA, plot_data = NA, plot_data_medoid = NA, criteria_list = "all", PCA = FALSE, scaling = TRUE, prior = FALSE, boot = FALSE, ...) {
   if (scaling) {
     dataset <- scale(dataset)
   }
@@ -1412,6 +1412,9 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
     }
   } else if (method == "mclust") {
     mka_fit <- Mclust(dataset, G = k_range)
+    if (boot) {
+      bootstrapped_mclust <- MclustBootstrap(mka_fit)
+    }
     selected_k <- mka_fit$G
     memberships <- tibble(k = selected_k, c = mka_fit$classification)
     DR <- MclustDR(mka_fit)

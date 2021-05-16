@@ -58,7 +58,7 @@ Az egyes MORI-mutatók alapján a k=7 megoldás tűnik megfelelőbbnek, mert PB 
 \newpage
 ## 2. A 8. óra 1. feladatában elmentett klaszterváltozókkal végezz MORI-elemzéseket a korreláló random normális kontroll módszerével, rep = 25 ismétlésszámmal! Melyik klaszterszám megoldása tűnik a legjobbnak?
 
-A kontrolláló random normális kontrollhoz varimax rotációval készült faktorsúly-mátrixot használtam. A súlyok értékeit az alábbi táblázat összegzi.
+A korreláló random normális kontrollhoz varimax rotációval készült faktorsúly-mátrixot használtam. A súlyok értékeit az alábbi táblázat összegzi.
 
 
 ```{r echo=FALSE}
@@ -151,7 +151,7 @@ A három klaszteres struktúra ugyanakkor permutációval becsült MORI-jai alap
 
 ## 4. A 10. óra 6. feladatában elmentett klaszterváltozóval végezz MORI-elemzést a korreláló random normális kontroll módszerével, rep = 25 ismétlésszámmal! Vesd össze a kapott eredményt a 2. feladatban kapottal!
 
-Random, kontrolláló normális kontrollal végzett külső validitás becslés alapján azt látjuk, elfogadható EESS%, XBmod, Solhouette, HCÁtlag, és alacsony CLdelta MORI-értékeket kapunk.
+Random, korreláló normális kontrollal végzett külső validitás becslés alapján azt látjuk, elfogadható EESS%, XBmod, Solhouette, HCÁtlag, és alacsony CLdelta MORI-értékeket kapunk.
 
 
 ```{r echo=FALSE}
