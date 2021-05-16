@@ -1,12 +1,15 @@
 source("../src/functions.R")
 dataset <- readRDS("prepared_data.RDS")
+dataset <- dataset %>% dplyr::select(-AllPunc, -Analytic, -Clout, -Authentic, -Tone, -Sixltr)
+liwc <- dataset[, seq(1:length(names(dataset)))[names(dataset) == "i"]:length(names(dataset))]
 
-liwc <- dataset[, 98:179]
-liwc <- tibble(data.frame(lapply(liwc, function(x) {
-  as.numeric(replace(x))
-})))
-densityMatrix(liwc)
-dataset <- liwc
+# liwc <- dataset[, 98:179]
+# liwc <- tibble(data.frame(lapply(liwc, function(x) {
+#   as.numeric(replace(x))
+# })))
+# densityMatrix(liwc)
+# dataset[,98:179] <- liwc
+# saveRDS(dataset, "prepared_data.RDS")
 
 
 # least variance
@@ -15,7 +18,7 @@ dataset <- liwc
 
 # curtosis is low
 
-
+dataset <- liwc
 
 evaluate_data <- function(dataset, Rlimit = 0.7, missingThreshold = floor(nrow(dataset) / 10), ...) {
   votes <- tibble(var = names(dataset), votes = rep(0, length(names(dataset))))
@@ -33,6 +36,7 @@ evaluate_data <- function(dataset, Rlimit = 0.7, missingThreshold = floor(nrow(d
     filter(votes != 0)
   for (name in unique(high_correlations$var)) {
     votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + high_correlations[high_correlations$var == name, ]$votes
+  votes[votes$var ==name, ]$corr <- high_correlations[high_correlations$var ==name, ]$votes
   }
 
   # 2. too many missing or zero
@@ -49,6 +53,7 @@ evaluate_data <- function(dataset, Rlimit = 0.7, missingThreshold = floor(nrow(d
 
   for (name in unique(missing$var)) {
     votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + floor(nrow(dataset) / (missingThreshold))
+    votes[votes$var ==name, ]$missing <- high_correlations[high_correlations$var ==name, ]$votes
   }
 
   # 3. least variance
@@ -63,6 +68,6 @@ evaluate_data <- function(dataset, Rlimit = 0.7, missingThreshold = floor(nrow(d
     votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + 1
   }
 
-  votes %>% arrange(votes)
+  votes %>% arrange(desc(votes))
 }
 evaluate_data(liwc)
