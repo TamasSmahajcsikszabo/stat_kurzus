@@ -9,7 +9,7 @@ library(ggrepel)
 library(ggforce)
 library(forcats)
 library(roxygen2)
-# sourceCpp("src/functions.cpp")
+sourceCpp("../src/functions.cpp")
 suppressMessages(library(readr))
 suppressMessages(library(ggrepel))
 suppressMessages(library(tidyverse))
@@ -1440,18 +1440,18 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
   }
   if (method %in% c("pam", "kmeans")) {
     if (exists("votes")) {
-      list(
+      structure(list(
         "plot" = CLplot,
         "votes" = votes,
         "medoids" = medoids,
         "homogenity" = HCs,
         "criteria" = criteria
-      )
+      ), class = "AutoCluster")
     } else {
       CLplot
     }
   } else if (method == "mclust") {
-    list(
+    structure(list(
       "mclust fit" = mka_fit,
       "icl fit" = icl_fit,
       "hard membership" = memberships,
@@ -1463,7 +1463,7 @@ autocluster <- function(dataset, method = "pam", Nvar = 3, k_range = 7:9, autotu
       "centers" = centers,
       "homogenity" = homogenity,
       "best k" = selected_k
-    )
+    ), class = "AutoCluster")
   }
 }
 
@@ -1513,13 +1513,12 @@ densityMatrix <- function(dataset, ...) {
       plot_data <- bind_rows(plot_data, actual_data)
     }
   }
-
   ggplot(plot_data) +
     facet_wrap(~var1 ~ var2, scales = "free") +
     geom_density_2d(data = plot_data %>% filter(var1 != var2), aes(x, y), color = "#49579F", contour = TRUE) +
-    geom_point(data = plot_data %>% filter(var1 != var2), aes(x, y), color = "grey30", alpha = 1 / 5) +
+    # geom_point(data = plot_data %>% filter(var1 != var2), aes(x, y), color = "grey30", alpha = 1 / 100) +
     geom_histogram(data = plot_data %>% filter(var1 == var2), aes(x), fill = "white", color = "black") +
-    geom_label(data = plot_data %>% filter(var1 == var2) %>% unique(), aes(x = -Inf, y = Inf, label = var1), color = "black", hjust = -0.5, vjust = 1.5, fill = "white") +
+    geom_label(data = plot_data %>% filter(var1 == var2) %>% group_by(var1, var2) %>% top_n(1, x) %>% unique(), aes(x = -Inf, y = Inf, label = var1), color = "black", hjust = -0.5, vjust = 1.5, fill = "white") +
     theme_light() +
     theme(
       axis.title = element_blank(),
@@ -1528,4 +1527,139 @@ densityMatrix <- function(dataset, ...) {
     )
 }
 
-# densityMatrix(dataset)
+MAD <- function(x, verbose = TRUE) {
+  med <- median(x, na.rm = TRUE)
+  med_diff <- c()
+  for (i in seq_along(x)) {
+    d <- abs(x[i] - med)
+    med_diff[i] <- d
+  }
+  MAD <- median(med_diff, na.rm = TRUE)
+  s <- MAD / 0.6745
+  outlier_crit <- 2 * s
+  outlier_vector <- c()
+  for (i in seq_along(x)) {
+    if (abs(x[i] - med) > outlier_crit) {
+      outlier_vector[i] <- TRUE
+    } else {
+      outlier_vector[i] <- FALSE
+    }
+  }
+
+  if (verbose) {
+    list(
+      "MAD" = MAD,
+      "s" = s,
+      "outlier criteria" = outlier_crit,
+      "outliers" = x[outlier_vector],
+      "outlier index" = outlier_vector
+    )
+  } else {
+    MAD
+  }
+}
+
+MAD_plot <- function(x) {
+  estimates <- MAD(x)
+  plot_data <- data.frame(x)
+  plot_data$index <- seq_along(x)
+  outlier_vector <- estimates[5]
+  plot_data <- cbind(plot_data, outlier = outlier_vector)
+  colnames(plot_data) <- c("x", "index", "outlier")
+  plot_data[plot_data$outlier == TRUE, 3] <- plot_data[plot_data$outlier == TRUE, 1]
+  plot_data[plot_data$outlier == FALSE, 3] <- NA
+
+  boundaries <- t(data.frame(
+    median(x, na.rm = TRUE) - estimates[[2]],
+    median(x, na.rm = TRUE) + estimates[[2]],
+    median(x, na.rm = TRUE) - 2 * estimates[[2]],
+    median(x, na.rm = TRUE) + 2 * estimates[[2]]
+  ))
+  rownames(boundaries) <- c("-1s", "+1s", "-2s", "+2s")
+
+  labels <- data.frame(
+    x = c(10, 10, 10),
+    y = c(boundaries[3, ][[1]], median(x, na.rm = TRUE), boundaries[4, ][[1]]),
+    label = c(
+      paste0("median - 2s: ", round(boundaries[3, ][[1]], 3)),
+      paste0("median: ", median(x, na.rm = TRUE)),
+      paste0("median + 2s: ", round(boundaries[4, ][[1]], 3))
+    )
+  )
+
+  ggplot(plot_data) +
+    geom_hline(aes(yintercept = median(x, na.rm = TRUE)),
+      linetype = "longdash", size = .5, alpha = 1 / 2
+    ) +
+    # geom_hline(aes(yintercept = boundaries[1, ][[1]]), linetype = "twodash", size = .5, alpha = 1/2) +
+    # geom_hline(aes(yintercept = boundaries[2, ][[1]]), linetype = "twodash", size = .5, alpha = 1/2) +
+    geom_hline(aes(yintercept = boundaries[3, ][[1]]),
+      linetype = "dotted", size = .5, alpha = 1 / 2
+    ) +
+    geom_hline(aes(yintercept = boundaries[4, ][[1]]),
+      linetype = "dotted", size = .5, alpha = 1 / 2
+    ) +
+    geom_point(aes(index, outlier), size = 6, color = "coral") +
+    geom_point(aes(index, x), size = 4, color = "cornflowerblue") +
+    theme_light() +
+    labs(
+      x = "Index of observation",
+      y = "Value of observation",
+      caption = "Labels are the actual values of outlier data points"
+    ) +
+    geom_label(aes(index, outlier, label = x)) +
+    geom_label(data = labels, aes(x, y, label = label), fontface = "bold")
+}
+
+evaluate_data <- function(dataset, Rlimit = 0.7, missingThreshold = floor(nrow(dataset) / 10), ...) {
+  votes <- tibble(var = names(dataset), votes = rep(0, length(names(dataset))))
+
+  # 1. too many correlations
+  covar <- tibble(data.frame(cor(dataset)))
+  covar <- bind_cols(tibble(var = names(dataset)), covar)
+  covar <- covar %>% pivot_longer(2:ncol(covar), names_to = "correlate", values_to = "R")
+  covar <- covar %>% filter(R != 1)
+  high_correlations <- covar %>%
+    mutate(ishighR = if_else(R >= Rlimit, 1, 0)) %>%
+    group_by(var) %>%
+    summarise(R = sum(ishighR)) %>%
+    arrange(desc(R)) %>%
+    filter(R != 0)
+  for (name in unique(high_correlations$var)) {
+    votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + high_correlations[high_correlations$var == name, ]$R
+  }
+  votes <- votes %>% left_join(high_correlations)
+
+  # 2. too many missing or zero
+  missing <- dataset %>% pivot_longer(1:ncol(dataset), names_to = "var", values_to = "val")
+  missing <- missing %>%
+    mutate(isZero = if_else(val == 0, 1, 0))
+  missing <- missing %>%
+    group_by(var) %>%
+    summarise(
+      isZero = sum(isZero)
+    ) %>%
+    filter(isZero > 0) %>%
+    filter(isZero > missingThreshold) %>%
+    mutate(missing_rate = isZero / missingThreshold)
+
+  for (name in unique(missing$var)) {
+    votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + missing[missing$var == name, ]$missing_rate
+  }
+  votes <- votes %>% left_join(missing[, c(1, 3)])
+
+  # 3. least variance
+  variance <- dataset %>% pivot_longer(1:ncol(dataset), names_to = "var", values_to = "val")
+  maxv <- var(variance$val)
+  variance <- variance %>%
+    group_by(var) %>%
+    summarise(v = var(val, na.rm = TRUE)) %>%
+    mutate(varvote = (maxv - v) / maxv)
+
+  for (name in unique(variance$var)) {
+    votes[votes$var == name, ]$votes <- votes[votes$var == name, ]$votes + variance[variance$var == name, ]$varvote
+  }
+  votes <- votes %>% left_join(variance[, c(1, 3)])
+
+  votes %>% arrange(votes, desc(T), desc(missing_rate), desc(varvote))
+}
